@@ -197,4 +197,4 @@ AND NOT EXISTS (
 ```
 
 According to [Wikipedia](https://en.wikipedia.org/wiki/List_of_Winnipeg_Jets_head_coaches), the Winninpeg Jets only had two coaches during 1983, Tom Watt (listed as "stint 1" in the raw data) and Barry Long (listed as "stint 3")
-Question: How should we handle situations like this? Can we change the initial data if we find discrepancies like this one?
+Apparently there was an interin coach (John Fergurson (General Manager)) (which would be "stint 2") that isn't listed here
