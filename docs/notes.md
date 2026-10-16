@@ -64,6 +64,8 @@ sqlite> SELECT MAX(year) FROM teams WHERE T IS NOT NULL;
 
 The NHL no longer has draws.
 
+Games might have different weights in their importance in the season (e.g.: final games of teams who already qualified for playoffs). Does the data represent this somehow or is this overlooked?
+
 ## Potential Derived Columns
 
 Win% (Teams, derived from G,W,L,T,OTL,..)
