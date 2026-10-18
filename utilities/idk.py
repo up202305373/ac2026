@@ -7,6 +7,6 @@ from sklearn.datasets import fetch_openml
 
 dfs = {}
 
-for file in Path("data/raw").glob("*.csv"):
+for file in Path("data").glob("*.csv"):
     dfs[(str(file).split(".")[0]).split("/")[-1]] = pd.read_csv(file)
     print((str(file).split(".")[0]).split("/")[-1] + "'s shape: " + str(dfs[(str(file).split(".")[0]).split("/")[-1]].shape))
