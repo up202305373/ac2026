@@ -19,5 +19,4 @@ def table_info():
         print(f"\n{t} table info:")
         print(load(f"PRAGMA table_info({t})"))
 
-# print(load("SELECT COUNT(*) FROM Teams WHERE Pts != 2*W + COALESCE(T,0) + COALESCE(OTL,0);"))
 table_info()
