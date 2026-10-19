@@ -64,6 +64,69 @@ sqlite> SELECT MAX(year) FROM teams WHERE T IS NOT NULL;
 
 The NHL no longer has draws.
 
+```PY
+def table_info():
+    tables = load("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")["name"]
+    for t in tables:
+        print(f"\n{t} table info:")
+        print(load(f"PRAGMA table_info({t})"))
+
+table_info()
+
+'''
+AwardsCoaches table info:
+   cid     name     type  notnull dflt_value  pk
+0    0  coachID     TEXT        0       None   0
+1    1    award     TEXT        0       None   0
+2    2     year  INTEGER        0       None   0
+3    3     lgID     TEXT        0       None   0
+4    4     note     REAL        0       None   0
+
+##  (...)
+
+abbrev table info:
+   cid      name  type  notnull dflt_value  pk
+0    0      Type  TEXT        0       None   0
+1    1      Code  TEXT        0       None   0
+2    2  Fullname  TEXT        0       None   0
+'''
+
+```
+
+AwardsCoaches' Note was saved as REAL instead of TEXT because the column is entirely empty.
+
+```PY
+def load(query):
+    with sqlite3.connect("database/hockey.db") as connection:
+        return pd.read_sql(query, connection)
+
+print(load("SELECT year, tmID, COUNT(*) FROM Teams GROUP BY 1,2 HAVING COUNT(*) > 1;"))
+print(load("SELECT COUNT(*) FROM Teams WHERE PPG > PPC;"))
+print(load("SELECT COUNT(*) FROM Teams WHERE Pts != 2*W + COALESCE(T,0) + COALESCE(OTL,0);"))
+
+'''
+Empty DataFrame
+Columns: [year, tmID, COUNT(*)]
+Index: []
+
+   COUNT(*)
+0         0
+
+   COUNT(*)
+0         0
+
+'''
+```
+
+No year/team pair exists more than once.
+No teams have more power play goals than power play chances.
+No teams have a different amount of points than the amount calculated with the point formula (2 * Win + 1 * Tie + 1 * Overtime Loss).
+
+## Questions
+
+Load Management: Resting key players on the final games of the season when a playoff spot has already been secured.
+Tanking: Building a non-competitive roster to lose as many games as possible in order to get better draft picks on the following year. 
+
 Games might have different weights in their importance in the season (e.g.: final games of teams who already qualified for playoffs). Does the data represent this somehow or is this overlooked?
 
 ## Potential Derived Columns
