@@ -126,8 +126,10 @@ No teams have a different amount of points than the amount calculated with the p
 
 Load Management: Resting key players on the final games of the season when a playoff spot has already been secured.
 Tanking: Building a non-competitive roster to lose as many games as possible in order to get better draft picks on the following year. 
-
 Games might have different weights in their importance in the season (e.g.: final games of teams who already qualified for playoffs). Does the data represent this somehow or is this overlooked?
+
+What exactly is known a day before the season starts? 
+- Are the coaches that will be starting the new season (stint 1) known? (Assuming yes) (relevant for task b, maybe a as well)
 
 ## Potential Derived Columns
 
