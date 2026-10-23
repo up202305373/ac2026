@@ -47,7 +47,7 @@ def hide(table_name, table, first_test_year):
             table[column_name] = table[column_name].iloc[:0]
         return table
 
-def sampler(train_from= 2000, train_until=2006, test_from=2007, test_to=2009):
+def sampler(train_from= 2000, train_until=2006, test_from=2007):
     tables = load_database()
     train = {}
     test = {}
@@ -55,7 +55,7 @@ def sampler(train_from= 2000, train_until=2006, test_from=2007, test_to=2009):
     for table_name, table in tables.items():
         if "year" in table.columns:
             train[table_name] = table[(table["year"] >= train_from) & (table["year"] <= train_until)].copy()
-            test[table_name] = table[(table["year"] >= test_from) & (table["year"] <= test_to)].copy()
+            test[table_name] = table[(table["year"] == test_from)].copy()
         else:
             train[table_name] = table.copy()
             test[table_name] = table.copy()
