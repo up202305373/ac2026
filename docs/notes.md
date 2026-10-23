@@ -193,3 +193,5 @@ A: The 2004–05 NHL season would have been the National Hockey League's 88th se
 ## Potential Derived Columns
 
 Win% (Teams, derived from G,W,L,T,OTL,..)
+
+## Important Decisions We Made 
