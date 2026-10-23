@@ -175,6 +175,14 @@ Still yet to define:
 - CombinedShutouts
 - TeamsPost
 
+## Answered Questions
+
+Q: Can we get external data?
+A: No.
+
+Q: Can we use outside tools for the exploratory data analysis?
+A: Yes.
+
 ## Potential Derived Columns
 
 Win% (Teams, derived from G,W,L,T,OTL,..)
