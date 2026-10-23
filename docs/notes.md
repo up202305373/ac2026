@@ -183,6 +183,12 @@ A: No.
 Q: Can we use outside tools for the exploratory data analysis?
 A: Yes.
 
+Q: How to handle new teams?
+A: Despite a team maybe being new, they might have players that exist in the dataset that have a history so we can probably make something out of that.
+
+Q: What happened to 2004?
+A: The 2004–05 NHL season would have been the National Hockey League's 88th season of play. The entire 1,230-game schedule, that was set to begin in October, was officially canceled on February 16, 2005, due to an unresolved lockout that began on September 16, 2004.
+
 ## Potential Derived Columns
 
 Win% (Teams, derived from G,W,L,T,OTL,..)
