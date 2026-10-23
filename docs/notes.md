@@ -142,6 +142,8 @@ What exactly is known a day before the season starts? This is what we are curren
 
 - **TeamsHalf:** We assume that information about the teams competing is known and that it is known that hockey games have 2 halves (year,lgID,tmID,half,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_).
 
+- **TeamSplits:** We assume that information about the teams competing is known but not their statistics (year,lgID,tmID,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_)
+
 - **Scoring:** We assume that information about the player is known, however his statistics are unknown (playerID,2007,1,tmID,lgID,pos,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_). Rows with stint > 1 are also entirely removed so the model can't know in advance what players will change teams.
 
 - **Goalies:** We assume that information about the player is known, however his statistics are unknown (playerID,2007,1,tmID,lgID,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_). Rows with stint > 1 are also entirely removed so the model can't know in advance what goalies will change teams.
@@ -155,7 +157,9 @@ What exactly is known a day before the season starts? This is what we are curren
 
 - **ScoringShootout:** Due to the lack of information on players with 0 S,G,GDG, we assume that players only make it to this list if they are involved in a shootout. Since we don't know beforehand what teams will even be involved in shootouts, it's probably best to remove all rows for the target and following years.
 
-- **GoaliesShootout:** Similar reasoning as the previous one, remove all rows for target and following years.
+- **GoaliesShootout, *CombinedShutouts:** Similar reasoning as the previous one, remove all rows for target and following years.
+
+- **TeamsPost:** We don't initially know what teams reach the post season, but we assume that the amount of teams in the post season coming from a league is known before the start of the season (year,lgID,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_,\_\_)
 
 - **ScoringSC, GoaliesSC, TeamsSC** We don't know which teams will make it to the Stanley Cup finals in advance, so we probably want to remove every row from these tables for the target and following years.
 - **AwardsCoaches, AwardsPlayers, AwardsMisc:** It's probably best to just remove all rows for the target year and following years instead of assuming that the awards that will be given out are known in advance.
@@ -171,9 +175,6 @@ Still yet to define:
 
 - TeamVsTeam (year,lgID,tmID,oppID,\_\_,\_\_,\_\_,\_\_) (depends on whether teams will face each other at least once per season or not)
 - ScoringSup
-- TeamSplits
-- CombinedShutouts
-- TeamsPost
 
 ## Answered Questions
 
