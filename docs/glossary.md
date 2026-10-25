@@ -1,0 +1,38 @@
+# Glossary
+
+- playerID: Player ID
+- coachID: Coach ID
+- hofID: Hall of Fame ID
+- legendsID: ID at Legends Of Hockey (www.legendsofhockey.net)
+- ihdbID: ID at the Internet Hockey Database
+- hrefID: ID at Hockey-Reference.com
+- tmID: Team ID
+- lgID: League ID
+- franchID: Franchise ID
+- confID: Conference ID
+- divID: Division ID
+- firstNHL: First NHL season (2005-06 listed as "2005")
+- shootCatch: Shooting hand (catching hand for goalies)
+- pos: Position
+- stint: order of appearance in a season
+- GP: Games played
+- G: Goals scored (Note: except in the "Coaches" and some team-related tables (i.e., "Teams", "TeamsHalf", "TeamsPost", and "TeamsSC" tables), where it stands for "Games")
+- A: Assists
+- Pts: Points
+- PIM: Penalty minutes
+- PPG / PPA: Power play goals / Power play assists
+- SHG / SHA: Short-handed goals / Short-handed assists
+- W: Wins
+- L: Losses
+- T/OL: Ties / Overtime losses
+- ENG: Empty net goals
+- SHO: Shutouts
+- GA / SA: Goals against / Shots against
+- OTL: Overtime losses
+- SoW / SoL: Shootout wins / Shootout losses
+- SHF: Shorthanded goals for
+- hW / rW: Home wins / Road wins
+- JanW / JanL / JanT / JanOL: January wins / losses / ties / overtime losses
+- R/P: "R" for regular season, or "P" for postseason
+- GDG: Game-deciding goals
+- S: Shots
