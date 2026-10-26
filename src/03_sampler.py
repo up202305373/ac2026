@@ -10,7 +10,7 @@ def load_database():
         tables = {table_name: pd.read_sql_query(f'SELECT * FROM "{table_name}"',connection) for table_name in table_names}
     return tables
 
-def hide(table_name, table, first_test_year):
+def hide(table_name, table, test_year):
     hide_columns = {}
 
     # Not very relevant for tasks a) or b)
@@ -31,7 +31,7 @@ def hide(table_name, table, first_test_year):
         keep = ["coachID", "year", "tmID", "lgID", "stint"]
 
         table = table.loc[table["stint"] == 1]
-        table.loc[table["year"] > first_test_year, "coachID"] = np.nan
+        table.loc[table["year"] > test_year, "coachID"] = np.nan
         table.loc[:, [col for col in table.columns if col not in keep]] = np.nan
         return table
 
@@ -47,7 +47,7 @@ def hide(table_name, table, first_test_year):
             table[column_name] = table[column_name].iloc[:0]
         return table
 
-def sampler(train_from= 2000, train_until=2006, test_from=2007):
+def sampler(train_from= 2000, train_until=2006, test_year=2007):
     tables = load_database()
     train = {}
     test = {}
@@ -55,7 +55,7 @@ def sampler(train_from= 2000, train_until=2006, test_from=2007):
     for table_name, table in tables.items():
         if "year" in table.columns:
             train[table_name] = table[(table["year"] >= train_from) & (table["year"] <= train_until)].copy()
-            test[table_name] = table[(table["year"] == test_from)].copy()
+            test[table_name] = table[(table["year"] == test_year)].copy()
         else:
             train[table_name] = table.copy()
             test[table_name] = table.copy()
@@ -63,7 +63,7 @@ def sampler(train_from= 2000, train_until=2006, test_from=2007):
     # Helper to check what values are information only available after the season starts
     # and remove values from those columns in test set
     for table_name, table in test.items():
-        test[table_name] = hide(table_name, test[table_name], test_from)
+        test[table_name] = hide(table_name, test[table_name], test_year)
 
     # Print helper to check things actually worked
     for table_name, table in test.items():
