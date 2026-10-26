@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import numpy as np
 import pandas as pd
@@ -10,26 +11,22 @@ def load_database():
         tables = {table_name: pd.read_sql_query(f'SELECT * FROM "{table_name}"',connection) for table_name in table_names}
     return tables
 
+def save_tables(tables, directory):
+    os.makedirs(directory, exist_ok=True)
+
+    for table_name, table in tables.items():
+        path = os.path.join(directory, f"{table_name}.csv")
+        table.to_csv(path, index=False)
+
 def hide(table_name, table, test_year):
     hide_columns = {}
 
-    # Not very relevant for tasks a) or b)
-    # hide_columns["AwardsCoaches"] = ["coachID", "note"]
-    # hide_columns["AwardsPlayers"] = ["playerID", "note"]
-    # hide_columns["AwardsMisc"] = "all"
-    # hide_columns["HOF"] = "all"
-    # SeriesPost 
-    # TeamHalf
-    #
-
-    hide_columns["Teams"] = ["rank", "playoff", "G", "W", "L", "T", "OTL", "Pts","SoW", "SoL", "GF", "GA", "PIM", "BenchMinor","PPG", "PPC", "SHA", "PKG", "PKC", "SHF"]   
+    hide_columns["Teams"] = ["rank", "playoff", "W", "L", "T", "OTL", "Pts","SoW", "SoL", "GF", "GA", "PIM", "BenchMinor","PPG", "PPC", "SHA", "PKG", "PKC", "SHF"]   
+    hide_columns["TeamsHalf"] = ["rank", "G", "W", "L", "T", "GF", "GA"]
+    hide_columns["TeamSpilts"] = ["hW", "hL", "hT", "hOTL", "rW", "rL", "rT", "rOTL", "SepW", "SepL", "SepT", "SepOL", "OctW", "OctL", "OctT", "OctOL", "NovW", "NovL", "NovT", "NovOL", "DecW", "DecL", "DecT", "DecOL", "JanW", "JanL", "JanT", "JanOL", "FebW", "FebL", "FebT", "FebOL", "MarW", "MarL", "MarT", "MarOL", "AprW", "AprL", "AprT", "AprOL"]
 
     if table_name == "Coaches":
-        # Assumption: Coach the team is starting the first season of the simulation with is known
-        # Assumption: Coach the team is starting the next seasons of the simulation with is unknown
-
         keep = ["coachID", "year", "tmID", "lgID", "stint"]
-
         table = table.loc[table["stint"] == 1]
         table.loc[table["year"] > test_year, "coachID"] = np.nan
         table.loc[:, [col for col in table.columns if col not in keep]] = np.nan
@@ -60,8 +57,6 @@ def sampler(train_from= 2000, train_until=2006, test_year=2007):
             train[table_name] = table.copy()
             test[table_name] = table.copy()
 
-    # Helper to check what values are information only available after the season starts
-    # and remove values from those columns in test set
     for table_name, table in test.items():
         test[table_name] = hide(table_name, test[table_name], test_year)
 
@@ -72,6 +67,9 @@ def sampler(train_from= 2000, train_until=2006, test_year=2007):
         print(table.tail(1))
         if table_name == "Coaches":
             print(table.head(10))
+
+    save_tables(train, "data/train")
+    save_tables(test, "data/test")
 
     return train, test
 

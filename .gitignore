@@ -1,2 +1,4 @@
 .venv/
 database/hockey.db
+data/test
+data/train
