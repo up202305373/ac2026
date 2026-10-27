@@ -19,30 +19,68 @@ def save_tables(tables, directory):
         table.to_csv(path, index=False)
 
 def hide(table_name, table, test_year):
-    hide_columns = {}
+    special_cases = { "Master" }
+    # TODO: update this list
+    remove_everything = {
+        "HOF", 
+        "AwardsCoaches",
+        "AwardsMisc",
+        "AwardsPlayers",
+    }
+    # TODO: update this list
+    keep_columns = {
+        "abbrev": ["Type", "Code", "Fullname"],
+        "Coaches": ["coachID", "year", "tmID", "lgID", "stint"],
+        "CombinedShutouts": [],
+        "Goalies": [],
+        "GoaliesSC": [],
+        "GoaliesShootout": [],
+        "Master": ["playerID","coachID","hofID","firstName","lastName","nameNote","nameGiven","nameNick","height","weight","shootCatch","legendsID","ihdbID","hrefID","firstNHL","lastNHL","firstWHA","lastWHA","pos","birthYear","birthMon","birthDay","birthCountry","birthState","birthCity","deathYear","deathMon","deathDay","deathCountry","deathState","deathCity"],
+        "Scoring": [],
+        "ScoringSC": [],
+        "ScoringShootout": [],
+        "ScoringSup": [],
+        "SeriesPost": [],
+        "Teams": ["year", "lgID", "tmID", "franchID", "confID", "divID", "name", "G"],
+        "TeamsHalf": [],
+        "TeamSplits": [],
+        "TeamsPost": [],
+        "TeamsSC": [],
+        "TeamVsTeam": []
+    }
+    keep_rows = {
+        "Coaches": {"column": "stint", "filter": 1},
+        "Scoring": {"column": "stint", "filter": 1},
+        "Goalies": {"column": "stint", "filter": 1},
+    }
 
-    hide_columns["Teams"] = ["rank", "playoff", "W", "L", "T", "OTL", "Pts","SoW", "SoL", "GF", "GA", "PIM", "BenchMinor","PPG", "PPC", "SHA", "PKG", "PKC", "SHF"]   
-    hide_columns["TeamsHalf"] = ["rank", "G", "W", "L", "T", "GF", "GA"]
-    hide_columns["TeamSpilts"] = ["hW", "hL", "hT", "hOTL", "rW", "rL", "rT", "rOTL", "SepW", "SepL", "SepT", "SepOL", "OctW", "OctL", "OctT", "OctOL", "NovW", "NovL", "NovT", "NovOL", "DecW", "DecL", "DecT", "DecOL", "JanW", "JanL", "JanT", "JanOL", "FebW", "FebL", "FebT", "FebOL", "MarW", "MarL", "MarT", "MarOL", "AprW", "AprL", "AprT", "AprOL"]
+    if table_name in remove_everything:
+        return table.iloc[:0]
+    
+    if table_name in special_cases:
+        if table_name == "Master":
+            death_mask = (table["deathYear"] > test_year) | ((table["deathYear"] == test_year) & (table["deathMon"] >= 10))
+            table.loc[death_mask, ["deathYear","deathMon","deathDay","deathCountry","deathState","deathCity"]] = np.nan
 
-    if table_name == "Coaches":
-        keep = ["coachID", "year", "tmID", "lgID", "stint"]
-        table = table.loc[table["stint"] == 1]
-        table.loc[table["year"] > test_year, "coachID"] = np.nan
-        table.loc[:, [col for col in table.columns if col not in keep]] = np.nan
-        return table
+            with sqlite3.connect("database/hockey.db") as connection:
+                hof_year = pd.read_sql_query('SELECT hofID, year FROM "HOF"',connection,).set_index("hofID")["year"]
+            induction_year = table["hofID"].map(hof_year)
+            future_hof_mask = induction_year >= test_year
+            table.loc[future_hof_mask, "hofID"] = np.nan
 
-    elif table_name not in hide_columns:
-        return table      
+            # TODO: last_nhl, last_wha
+            # TODO: these exact same filters should be done to the training data as well
 
-    elif hide_columns[table_name] == "all":
-        table = table.iloc[:0]
-        return table
+    if table_name in keep_rows:
+        column = keep_rows[table_name]["column"]  
+        filter = keep_rows[table_name]["filter"]
+        table = table[(table[column] == filter)]
 
-    else:
-        for column_name in hide_columns[table_name]:
+    for column_name in table.columns:
+        if column_name not in keep_columns[table_name]:
             table[column_name] = table[column_name].iloc[:0]
-        return table
+
+    return table
 
 def sampler(train_from= 2000, train_until=2006, test_year=2007):
     tables = load_database()

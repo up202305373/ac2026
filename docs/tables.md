@@ -125,7 +125,7 @@ This file has important information regarding all tables.
   - Ranges: `firstNHL` and `lastNHL` 1917 to 2009, `firstWHA` and `lastWHA` 1972 to 1978, `birthYear` 1841 to 1991, `height` 63 to 81, `weight` 125 to 265.
   - `pos`: D, C, L, R, G, plus F (43 rows), W (1) and 11 composite codes (21 rows, e.g. `R/C`, `C/D`). `shootCatch`: L 4604, R 2441, B 1.
 - **Known before the season (test data keeps):** all columns except those under Hidden.
-- **Hidden in test data:** `hofID`, `lastNHL`, `lastWHA`, and death information for deaths after the day before the season starts (`deathYear`, `deathMon`, `deathDay`, `deathCountry`, `deathState`, `deathCity`).
+- **Hidden in test data:** `lastNHL`, `lastWHA`, and death information for deaths after the day before the season starts (`deathYear`, `deathMon`, `deathDay`, `deathCountry`, `deathState`, `deathCity`). `hofID` should be hidden for any person with `HOF[year]` >= `test_year`.
 - **Quality notes:**
 - **Links to:** `Scoring`, `Goalies`, `ScoringSC`, `GoaliesSC`, `ScoringShootout`, `GoaliesShootout`, `ScoringSup`, `AwardsPlayers`, `CombinedShutouts` on `playerID`. `Coaches`, `AwardsCoaches` on `coachID`. `HOF` on `hofID`.
 
