@@ -28,7 +28,7 @@ This file has important information regarding all tables.
   - **OTT 2001:** the stint-3 coach has blank `g`, `w`, `l`, `t` and only playoff games. One row has a blank regular season.
   - `notes` is almost empty: 1730 of 1741 blank, 9 `interim`, 2 co-coach.
   - Interim spells can be tiny: 1 to 6 games.
-  - Playoff columns are blank in 846 rows. Likely "no playoff games", not missing data.
+  - Playoff columns are blank in 846 rows. Most definitely "no playoff games" due to not qualifying, not missing data.
   - Team-seasons with no coach row: only 5, all outside the NHL (REN 1909 and 1910, TO1 1912, and the WHA's CZE and FIN in 1978). Every NHL team-season has a coach.
   - A coach can appear with two teams in one season.
   - Column names are lowercase here (`g`, `w`, `l`, `t`), and uppercase in `Teams`. Case matters in pandas, not in SQLite.
@@ -190,7 +190,7 @@ This file has important information regarding all tables.
 - **What it is:** one row per team per opponent per season with the team's record against that opponent (`year`, `lgID`, `tmID`, `oppID`, `W`, `L`, `T`, `OTL`).
 - **Key:** (`year`, `tmID`, `oppID`) is unique. No team plays itself, and every row has a reverse row (opponent against team).
 - **Coverage:** 23,862 rows, 1909 to 2009. NHL 22,498, WHA 916, NHA 214, WCHL 120, PCHA 114.
-- **Known before the season:** not decided.
+- **Known before the season:** `year`, `lgID`, `tmID` and `oppID`, since this table only covers regular season games, and those are scheduled before the season starts.
 - **Hidden in test data:** not decided.
 - **Quality notes:**
 - **Links to:** `Teams` on (`year`, `tmID`) and (`year`, `oppID`).
@@ -255,7 +255,7 @@ This file has important information regarding all tables.
 - **What it is:** one row per player per year with `PPA` and `SHA` (`playerID`, `year`, `PPA`, `SHA`).
 - **Key:** (`playerID`, `year`) is unique.
 - **Coverage:** 137 rows, 1987 to 1990 (29, 39, 34, 35 per year).
-- **Known before the season:** not decided.
-- **Hidden in test data:** not decided (the table has no rows after 1990).
+- **Known before the season:** nothing.
+- **Hidden in test data:** everything.
 - **Quality notes:**
 - **Links to:** `Scoring` on (`playerID`, `year`), `Master` on `playerID`.
