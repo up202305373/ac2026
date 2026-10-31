@@ -20,33 +20,31 @@ def save_tables(tables, directory):
 
 def hide(table_name, table, test_year):
     special_cases = { "Master" }
-    # TODO: update this list
     remove_everything = {
         "HOF", 
         "AwardsCoaches",
         "AwardsMisc",
         "AwardsPlayers",
+        "ScoringShootout",
+        "GoaliesShootout",
+        "CombinedShutouts",
+        "ScoringSC",
+        "GoaliesSC",
+        "TeamsSC",
+        "ScoringSup",
     }
-    # TODO: update this list
     keep_columns = {
         "abbrev": ["Type", "Code", "Fullname"],
         "Coaches": ["coachID", "year", "tmID", "lgID", "stint"],
-        "CombinedShutouts": [],
-        "Goalies": [],
-        "GoaliesSC": [],
-        "GoaliesShootout": [],
+        "Goalies": ["playerID", "year", "stint", "tmID", "lgID"],
         "Master": ["playerID","coachID","hofID","firstName","lastName","nameNote","nameGiven","nameNick","height","weight","shootCatch","legendsID","ihdbID","hrefID","firstNHL","lastNHL","firstWHA","lastWHA","pos","birthYear","birthMon","birthDay","birthCountry","birthState","birthCity","deathYear","deathMon","deathDay","deathCountry","deathState","deathCity"],
-        "Scoring": [],
-        "ScoringSC": [],
-        "ScoringShootout": [],
-        "ScoringSup": [],
-        "SeriesPost": [],
+        "Scoring": ["playerID", "year", "stint", "tmID", "lgID", "pos"],
+        "SeriesPost": ["year", "round", "series"],
         "Teams": ["year", "lgID", "tmID", "franchID", "confID", "divID", "name", "G"],
-        "TeamsHalf": [],
-        "TeamSplits": [],
-        "TeamsPost": [],
-        "TeamsSC": [],
-        "TeamVsTeam": []
+        "TeamsHalf": ["year", "lgID", "tmID", "half"],
+        "TeamSplits": ["year", "lgID", "tmID"],
+        "TeamsPost": ["year", "lgID"],
+        "TeamVsTeam": ["year", "lgID", "tmID", "oppID"],
     }
     keep_rows = {
         "Coaches": {"column": "stint", "filter": 1},
@@ -68,8 +66,10 @@ def hide(table_name, table, test_year):
             future_hof_mask = induction_year >= test_year
             table.loc[future_hof_mask, "hofID"] = np.nan
 
-            # TODO: last_nhl, last_wha
-            # TODO: these exact same filters should be done to the training data as well
+            last_nhl_mask = (table["lastNHL"] >= test_year)
+            table.loc[last_nhl_mask, "lastNHL"] = np.nan
+            last_wha_mask = (table["lastWHA"] >= test_year)
+            table.loc[last_wha_mask, "lastWHA"] = np.nan
 
     if table_name in keep_rows:
         column = keep_rows[table_name]["column"]  
@@ -95,16 +95,17 @@ def sampler(train_from= 2000, train_until=2006, test_year=2007):
             train[table_name] = table.copy()
             test[table_name] = table.copy()
 
+    train["Master"] = hide("Master", train["Master"], test_year)
     for table_name, table in test.items():
         test[table_name] = hide(table_name, test[table_name], test_year)
 
     # Print helper to check things actually worked
-    for table_name, table in test.items():
+    '''for table_name, table in test.items():
         print(f"{table_name} test columns: {list(table.columns)}")
         print(table.head(1))
         print(table.tail(1))
         if table_name == "Coaches":
-            print(table.head(10))
+            print(table.head(10))'''
 
     save_tables(train, "data/train")
     save_tables(test, "data/test")

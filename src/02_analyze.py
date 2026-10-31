@@ -42,3 +42,4 @@ def table_info():
 #print(load("SELECT * FROM SCORING WHERE G + A != PTS AND G IS NOT NULL AND A IS NOT NULL AND PTS IS NOT NULL"))
 #print(load("SELECT * FROM MASTER WHERE deathYear == 2007 and deathMon >= 9"))
 #print(load("SELECT count() FROM MASTER WHERE LEGENDSID IS NOT NULL"))
+#print(load("SELECT t.year, t.tmID, t.G, SUM(tv.W + tv.L + tv.T + tv.OTL) AS vs_games FROM Teams t JOIN TeamVsTeam tv ON tv.year = t.year AND tv.tmID = t.tmID WHERE t.lgID = 'NHL' GROUP BY t.year, t.tmID, t.G HAVING vs_games <> t.G;"))
