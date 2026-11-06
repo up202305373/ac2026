@@ -1,6 +1,5 @@
 import sqlite3
 import pandas as pd
-from pathlib import Path
 
 def load(query):
     with sqlite3.connect("database/hockey.db") as connection:
@@ -19,4 +18,4 @@ def table_info():
         print(f"\n{t} table info:")
         print(load(f"PRAGMA table_info({t})"))
 
-table_info()
+print(load("SELECT * FROM TEAMS"))
