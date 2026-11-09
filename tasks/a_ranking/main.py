@@ -52,7 +52,7 @@ def main() -> None:
         log.info(f"\nTest metrics ({test_year}):")
         evaluate_ranking(predictions, actual_test)
 
-    log.info(f"\nlog written to {LOG_FILE}")
+    print(f"\nlog written to {LOG_FILE}")
 
 if __name__ == "__main__":
     main()
