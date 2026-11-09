@@ -2,3 +2,6 @@
 database/hockey.db
 data/test
 data/train
+__pycache__/
+*.pyc
+logs/

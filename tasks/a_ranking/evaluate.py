@@ -1,23 +1,11 @@
-"""Simple evaluation for predicted team rankings."""
-
 from __future__ import annotations
-
+import logging
 import pandas as pd
+log = logging.getLogger("a_ranking")
 
-
-def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame) -> None:
-    """Print the number of predictions that exactly match the actual rank.
-
-    Args:
-        predictions: Dataframe containing ``tmID`` and ``predicted_rank``.
-        actual: Dataframe containing ``tmID`` and ``rank``.
-
-    Raises:
-        ValueError: If required columns are missing or no teams can be
-            evaluated.
-    """
-    prediction_columns = {"tmID", "predicted_rank"}
-    actual_columns = {"tmID", "rank"}
+def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame) -> dict:
+    prediction_columns = {"year", "franchID", "predicted_pts"}
+    actual_columns = {"year", "franchID", "Pts", "divID", "rank"}
 
     missing_predictions = prediction_columns - set(predictions.columns)
     if missing_predictions:
@@ -29,16 +17,48 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame) -> None:
     if missing_actual:
         raise ValueError(f"actual is missing columns: {sorted(missing_actual)}")
 
-    comparison = predictions[["tmID", "predicted_rank"]].merge(
-        actual[["tmID", "rank"]],
-        on="tmID",
+    actual = actual[["year", "franchID", "Pts", "divID", "rank"]].copy()
+    actual["Pts"] = actual["Pts"].astype(float)
+    actual["rank"] = actual["rank"].astype(float)
+
+    comparison = predictions[["year", "franchID", "predicted_pts"]].merge(
+        actual,
+        on=["year", "franchID"],
         how="inner",
         validate="one_to_one",
     )
-    comparison = comparison.dropna(subset=["predicted_rank", "rank"])
+    comparison = comparison.dropna(subset=["predicted_pts", "Pts"])
 
     if comparison.empty:
-        raise ValueError("No teams with both predicted and actual ranks")
+        raise ValueError("No teams with both predicted and actual points")
 
-    correct = (comparison["predicted_rank"] == comparison["rank"]).sum()
-    print(f"{correct}/{len(comparison)} correct")
+    # League-wide positions: both sides derived from points.
+    comparison["predicted_pos"] = (
+        comparison.groupby("year")["predicted_pts"]
+        .rank(method="first", ascending=False)
+        .astype(int)
+    )
+    comparison["actual_pos"] = (
+        comparison.groupby("year")["Pts"]
+        .rank(method="first", ascending=False)
+        .astype(int)
+    )
+    league_correct = int((comparison["predicted_pos"] == comparison["actual_pos"]).sum())
+    log.info(f"League positions: {league_correct}/{len(comparison)} correct")
+
+    # Divisional positions: only team-seasons with a division can be compared.
+    div = comparison[comparison["divID"].notna()].copy()
+    div["predicted_div_pos"] = (
+        div.groupby(["year", "divID"])["predicted_pts"]
+        .rank(method="first", ascending=False)
+        .astype(int)
+    )
+    div_correct = int((div["predicted_div_pos"] == div["rank"].astype(int)).sum())
+    log.info(f"Divisional positions: {div_correct}/{len(div)} correct")
+
+    return {
+        "league_correct": league_correct,
+        "league_total": len(comparison),
+        "div_correct": div_correct,
+        "div_total": len(div),
+    }
