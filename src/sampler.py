@@ -1,12 +1,16 @@
 import os
 import sqlite3
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 pd.set_option('display.max_columns', None)
 
-def load_database():
-    with sqlite3.connect("database/hockey.db") as connection:
+ROOT = Path(__file__).resolve().parents[1]
+
+def load_database(database_path=ROOT / "database" / "hockey.db"):
+    with sqlite3.connect(database_path) as connection:
         table_names = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type = 'table'",connection)["name"].tolist()
         tables = {table_name: pd.read_sql_query(f'SELECT * FROM "{table_name}"',connection) for table_name in table_names}
     return tables
@@ -18,7 +22,7 @@ def save_tables(tables, directory):
         path = os.path.join(directory, f"{table_name}.csv")
         table.to_csv(path, index=False)
 
-def hide(table_name, table, test_year):
+def hide(table_name, table, test_year, database_path=ROOT / "database" / "hockey.db"):
     special_cases = { "Master" }
     remove_everything = {
         "HOF", 
@@ -60,7 +64,7 @@ def hide(table_name, table, test_year):
             death_mask = (table["deathYear"] > test_year) | ((table["deathYear"] == test_year) & (table["deathMon"] >= 10))
             table.loc[death_mask, ["deathYear","deathMon","deathDay","deathCountry","deathState","deathCity"]] = np.nan
 
-            with sqlite3.connect("database/hockey.db") as connection:
+            with sqlite3.connect(database_path) as connection:
                 hof_year = pd.read_sql_query('SELECT hofID, year FROM "HOF"',connection,).set_index("hofID")["year"]
             induction_year = table["hofID"].map(hof_year)
             future_hof_mask = induction_year >= test_year
@@ -83,7 +87,8 @@ def hide(table_name, table, test_year):
     return table
 
 def sampler(train_from= 2000, train_until=2006, test_year=2007):
-    tables = load_database()
+    database_path = ROOT / "database" / "hockey.db"
+    tables = load_database(database_path)
     train = {}
     test = {}
 
@@ -95,9 +100,9 @@ def sampler(train_from= 2000, train_until=2006, test_year=2007):
             train[table_name] = table.copy()
             test[table_name] = table.copy()
 
-    train["Master"] = hide("Master", train["Master"], test_year)
+    train["Master"] = hide("Master", train["Master"], test_year, database_path)
     for table_name, table in test.items():
-        test[table_name] = hide(table_name, test[table_name], test_year)
+        test[table_name] = hide(table_name, test[table_name], test_year, database_path)
 
     # Print helper to check things actually worked
     '''for table_name, table in test.items():
@@ -107,9 +112,10 @@ def sampler(train_from= 2000, train_until=2006, test_year=2007):
         if table_name == "Coaches":
             print(table.head(10))'''
 
-    save_tables(train, "data/train")
-    save_tables(test, "data/test")
+    save_tables(train, ROOT / "data" / "train")
+    save_tables(test, ROOT / "data" / "test")
 
     return train, test
 
-sampler()
+if __name__ == "__main__":
+    sampler()
