@@ -1,0 +1,1 @@
+## How many penalty minutes (PIM) each player will accumulate during the regular season
