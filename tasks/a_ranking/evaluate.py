@@ -32,7 +32,7 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame) -> dict:
     if comparison.empty:
         raise ValueError("No teams with both predicted and actual points")
 
-    # League-wide positions: both sides derived from points.
+    # League-wide positions
     comparison["predicted_pos"] = (
         comparison.groupby("year")["predicted_pts"]
         .rank(method="first", ascending=False)
@@ -46,7 +46,7 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame) -> dict:
     league_correct = int((comparison["predicted_pos"] == comparison["actual_pos"]).sum())
     log.info(f"League positions: {league_correct}/{len(comparison)} correct")
 
-    # Divisional positions: only team-seasons with a division can be compared.
+    # Divisional positions
     div = comparison[comparison["divID"].notna()].copy()
     div["predicted_div_pos"] = (
         div.groupby(["year", "divID"])["predicted_pts"]
