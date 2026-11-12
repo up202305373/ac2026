@@ -48,8 +48,8 @@ def hide(table_name, table, test_year):
     }
     keep_rows = {
         "Coaches": {"column": "stint", "filter": 1},
-        "Scoring": {"column": "stint", "filter": 1},
-        "Goalies": {"column": "stint", "filter": 1},
+        "Scoring": {"column": "stint", "filter": 1, "not_null": "GP"},
+        "Goalies": {"column": "stint", "filter": 1, "not_null": "GP"},
     }
 
     if table_name in remove_everything:
@@ -72,9 +72,10 @@ def hide(table_name, table, test_year):
             table.loc[last_wha_mask, "lastWHA"] = np.nan
 
     if table_name in keep_rows:
-        column = keep_rows[table_name]["column"]  
-        filter = keep_rows[table_name]["filter"]
-        table = table[(table[column] == filter)]
+        rule = keep_rows[table_name]
+        table = table[table[rule["column"]] == rule["filter"]]
+        if "not_null" in rule:
+            table = table[table[rule["not_null"]].notna()]
 
     for column_name in table.columns:
         if column_name not in keep_columns[table_name]:
