@@ -1,7 +1,6 @@
-from models import baseline
-from models import ridge
+from models import baseline, roster
 
 MODELS = {
     "baseline": baseline.train_and_predict,
-    "ridge": ridge.train_and_predict,
+    "roster_history": roster.train_and_predict,
 }

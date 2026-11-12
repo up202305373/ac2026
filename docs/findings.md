@@ -382,3 +382,28 @@ Index: []
 ```
 
 For all NHL team-seasons, the head-to-head result totals for a team-season in TeamVsTeam is equal to the corresponding Games in the Teams table, meaning TeamVsTeam tracks regular season head-to-head results. Since this is the case and schedules are known before a season starts, keeping the first 4 columns in the test table doesn’t reveal outcomes.
+
+```PY
+print(load("SELECT DISTINCT pos FROM SCORING WHERE LENGTH(POS) > 1"))
+
+    pos
+0   L/D
+1   D/L
+2   C/L
+3   R/L
+4   C/R
+5   L/C
+6   D/R
+7   R/D
+8   R/C
+9   C/D
+10  D/C
+11  F/D
+12  W/D
+13  D/W
+14  L/R
+15  D/F
+16  C/G
+```
+
+Some players have multiple positions listed, some with completely different roles.
