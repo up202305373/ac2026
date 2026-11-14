@@ -101,7 +101,7 @@ def generate_graphs(comparison, div, name, year=None) -> None:
     axes[0].set_xlabel("Absolute Position Error")
     axes[0].set_ylabel("Count")
     for p in axes[0].patches:
-        axes[0].annotate(str(p.get_height()), (p.get_x() * 1.005, p.get_height() * 1.005))
+        axes[0].annotate(str(p.get_height()), (p.get_x() + p.get_width() / 2, p.get_height() * 1.005), ha="center", va="bottom")
 
     # Divisional position error distribution
     div_counts = div["div_pos_error"].value_counts().sort_index()
@@ -111,7 +111,7 @@ def generate_graphs(comparison, div, name, year=None) -> None:
     axes[1].set_xlabel("Absolute Divisional Position Error")
     axes[1].set_ylabel("Count")
     for p in axes[1].patches:
-        axes[1].annotate(str(p.get_height()), (p.get_x() * 1.005, p.get_height() * 1.005))
+        axes[1].annotate(str(p.get_height()), (p.get_x() + p.get_width() / 2, p.get_height() * 1.005), ha="center", va="bottom")
 
     plt.tight_layout()
     if year is not None:
