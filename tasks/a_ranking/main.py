@@ -67,7 +67,16 @@ def main() -> None:
 
         print(f"\nlog written to {LOG_FILE}")
 
+        
     for name, results in results_by_model.items():
+        summary = pd.DataFrame(results)
+        log.info(f"\n===== Overall: {name} =====")
+        log.info(f"Mean spearman: {summary['spearman'].mean():.3f} (sd {summary['spearman'].std():.3f})")
+        log.info(f"Mean league position error: {summary['mean_pos_error'].mean():.2f} spots (sd {summary['mean_pos_error'].std():.2f})")
+        log.info(f"Mean divisional position error: {summary['div_mean_pos_error'].mean():.2f} spots (sd {summary['div_mean_pos_error'].std():.2f})")
+        log.info(f"League positions correct: {summary['league_correct'].sum()}/{summary['league_total'].sum()}")
+        log.info(f"Divisional positions correct: {summary['div_correct'].sum()}/{summary['div_total'].sum()}")
+
         comparison = pd.concat([r["comparison"] for r in results], ignore_index=True)
         div = pd.concat([r["div"] for r in results], ignore_index=True)
         generate_graphs(comparison, div, name)
