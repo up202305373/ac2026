@@ -9,7 +9,6 @@ from sklearn.preprocessing import StandardScaler
 N_FORWARDS = 12
 MIN_SKATER_GP = 20
 MIN_GOALIE_GP = 10
-ALPHA = 30.0
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 FEATURES = ["team_gd", "fwd_ppg", "goalie_svpct", "new_share"]
 
@@ -112,7 +111,7 @@ def build_rows(teams, roster_scoring, roster_goalies, prior_scoring, prior_goali
 def load_players(split: str) -> dict:
     return {t: pd.read_csv(DATA_DIR / split / f"{t}.csv") for t in ("Scoring", "Goalies")}
 
-def train_and_predict(train_data, test_data, train_players=None, test_players=None) -> pd.DataFrame:
+def train_and_predict(train_data, test_data, train_players=None, test_players=None, alpha=30.0) -> pd.DataFrame:
     """Trains a ridge model on prior seasons and predict the test-year rankings."""
     train_players = train_players or load_players("train")
     test_players = test_players or load_players("test")
@@ -131,7 +130,7 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
         frames.append(feats.merge(target, on="franchID"))
     train_rows = pd.concat(frames).dropna(subset=FEATURES + ["Pts"])
 
-    model = make_pipeline(StandardScaler(), Ridge(alpha=ALPHA))
+    model = make_pipeline(StandardScaler(), Ridge(alpha))
     model.fit(train_rows[FEATURES], train_rows["Pts"].astype(float))
 
     test_year = int(test_data["year"].iloc[0])

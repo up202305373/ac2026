@@ -18,6 +18,7 @@ from evaluate import generate_graphs
 OUTPUT_DIR = ROOT / "tasks" / "a_ranking" / "logs"
 LOG_FILE = OUTPUT_DIR / "output.log"
 TEST_YEARS = [2000, 2001, 2002, 2003, 2006, 2007, 2008, 2009]
+ALPHAS = [1.0, 3.0, 10.0, 30.0, 100.0]
 
 def setup_logging() -> logging.Logger:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -25,7 +26,7 @@ def setup_logging() -> logging.Logger:
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
 
-    file_handler = logging.FileHandler(LOG_FILE, mode="a")
+    file_handler = logging.FileHandler(LOG_FILE, mode="w")
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
 
@@ -56,30 +57,56 @@ def main() -> None:
         actual_test = load_actual_teams(test_year)
 
         for name, train_and_predict in MODELS.items():
-            log.info(f"\n===== Model: {name} =====")
-
-            predictions = train_and_predict(train_data, test_data)
-            log.info("Predictions:")
-            log.info(predictions.to_string(index=False))
-            log.info(f"\nTest metrics ({test_year}):")
-            result = evaluate_ranking(predictions, actual_test, name, test_year)
-            results_by_model[name].append({"model": name, "year": test_year, **result})
-
+            if name == "roster":
+                for alpha in ALPHAS:
+                    log.info(f"\n===== Model: {name} (alpha={alpha}) =====")
+                    predictions = train_and_predict(train_data, test_data, alpha=alpha)
+                    log.info("Predictions:")
+                    log.info(predictions.to_string(index=False))
+                    log.info(f"\nTest metrics ({test_year}):")
+                    result = evaluate_ranking(predictions, actual_test, name, test_year)
+                    results_by_model[name].append({"model": f"{name}_alpha_{alpha}", "year": test_year, **result})
+            else:
+                log.info(f"\n===== Model: {name} =====")
+                predictions = train_and_predict(train_data, test_data)
+                log.info("Predictions:")
+                log.info(predictions.to_string(index=False))
+                log.info(f"\nTest metrics ({test_year}):")
+                result = evaluate_ranking(predictions, actual_test, name, test_year)
+                results_by_model[name].append({"model": name, "year": test_year, **result})
+                
         print(f"\nlog written to {LOG_FILE}")
 
         
     for name, results in results_by_model.items():
-        summary = pd.DataFrame(results)
-        log.info(f"\n===== Overall: {name} =====")
-        log.info(f"Mean spearman: {summary['spearman'].mean():.3f} (sd {summary['spearman'].std():.3f})")
-        log.info(f"Mean league position error: {summary['mean_pos_error'].mean():.2f} spots (sd {summary['mean_pos_error'].std():.2f})")
-        log.info(f"Mean divisional position error: {summary['div_mean_pos_error'].mean():.2f} spots (sd {summary['div_mean_pos_error'].std():.2f})")
-        log.info(f"League positions correct: {summary['league_correct'].sum()}/{summary['league_total'].sum()}")
-        log.info(f"Divisional positions correct: {summary['div_correct'].sum()}/{summary['div_total'].sum()}")
+        if name == "roster":
+            for alpha in ALPHAS:
+                filtered_results = [r for r in results if r["model"] == f"{name}_alpha_{alpha}"]
+                if filtered_results:
+                    summary = pd.DataFrame(filtered_results)
+                    log.info(f"\n===== Overall: {name} (alpha={alpha}) =====")
+                    log.info(f"Mean spearman: {summary['spearman'].mean():.3f} (sd {summary['spearman'].std():.3f})")
+                    log.info(f"Mean league position error: {summary['mean_pos_error'].mean():.2f} spots (sd {summary['mean_pos_error'].std():.2f})")
+                    log.info(f"Mean divisional position error: {summary['div_mean_pos_error'].mean():.2f} spots (sd {summary['div_mean_pos_error'].std():.2f})")
+                    log.info(f"League positions correct: {summary['league_correct'].sum()}/{summary['league_total'].sum()}")
+                    log.info(f"Divisional positions correct: {summary['div_correct'].sum()}/{summary['div_total'].sum()}")
 
-        comparison = pd.concat([r["comparison"] for r in results], ignore_index=True)
-        div = pd.concat([r["div"] for r in results], ignore_index=True)
-        generate_graphs(comparison, div, name)
+                    comparison = pd.concat([r["comparison"] for r in filtered_results], ignore_index=True)
+                    div = pd.concat([r["div"] for r in filtered_results], ignore_index=True)
+                    generate_graphs(comparison, div, f"{name}_alpha_{alpha}")
+
+        else:
+            summary = pd.DataFrame(results)
+            log.info(f"\n===== Overall: {name} =====")
+            log.info(f"Mean spearman: {summary['spearman'].mean():.3f} (sd {summary['spearman'].std():.3f})")
+            log.info(f"Mean league position error: {summary['mean_pos_error'].mean():.2f} spots (sd {summary['mean_pos_error'].std():.2f})")
+            log.info(f"Mean divisional position error: {summary['div_mean_pos_error'].mean():.2f} spots (sd {summary['div_mean_pos_error'].std():.2f})")
+            log.info(f"League positions correct: {summary['league_correct'].sum()}/{summary['league_total'].sum()}")
+            log.info(f"Divisional positions correct: {summary['div_correct'].sum()}/{summary['div_total'].sum()}")
+
+            comparison = pd.concat([r["comparison"] for r in results], ignore_index=True)
+            div = pd.concat([r["div"] for r in results], ignore_index=True)
+            generate_graphs(comparison, div, name)
 
 
 if __name__ == "__main__":
