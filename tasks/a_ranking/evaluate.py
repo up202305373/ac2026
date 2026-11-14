@@ -1,10 +1,13 @@
 from __future__ import annotations
+from pathlib import Path
 from scipy.stats import spearmanr
 import logging
 import pandas as pd
 log = logging.getLogger("a_ranking")
 
-def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame) -> dict:
+OUTPUT_DIR = Path(__file__).resolve().parents[0] / "plots"
+
+def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str, year: int) -> dict:
     prediction_columns = {"year", "franchID", "predicted_pts"}
     actual_columns = {"year", "franchID", "Pts", "divID", "rank"}
 
@@ -69,9 +72,51 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame) -> dict:
 
     log.info(f"Mean absolute divisional position error: {div_mean_pos_error:.2f} spots")
 
+    generate_graphs(comparison, div, name, year)
+
     return {
         "league_correct": league_correct,
         "league_total": len(comparison),
+        "spearman": spearman,
+        "mean_pos_error": mean_pos_error,
+        "div_mean_pos_error": div_mean_pos_error,
+        "comparison": comparison,
+        "div": div,
         "div_correct": div_correct,
         "div_total": len(div),
     }
+
+def generate_graphs(comparison, div, name, year=None) -> None:
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set(style="whitegrid")
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+    # League-wide position error distribution
+    counts = comparison["pos_error"].value_counts().sort_index()
+    axes[0].bar(counts.index, counts.values, width=1.0, edgecolor="black")
+    axes[0].set_xticks(range(0, int(counts.index.max()) + 1))
+    axes[0].set_title("League-wide Position Error Distribution")
+    axes[0].set_xlabel("Absolute Position Error")
+    axes[0].set_ylabel("Count")
+    for p in axes[0].patches:
+        axes[0].annotate(str(p.get_height()), (p.get_x() * 1.005, p.get_height() * 1.005))
+
+    # Divisional position error distribution
+    div_counts = div["div_pos_error"].value_counts().sort_index()
+    axes[1].bar(div_counts.index, div_counts.values, width=1.0, edgecolor="black")
+    axes[1].set_xticks(range(0, int(div_counts.index.max()) + 1))
+    axes[1].set_title("Divisional Position Error Distribution")
+    axes[1].set_xlabel("Absolute Divisional Position Error")
+    axes[1].set_ylabel("Count")
+    for p in axes[1].patches:
+        axes[1].annotate(str(p.get_height()), (p.get_x() * 1.005, p.get_height() * 1.005))
+
+    plt.tight_layout()
+    if year is not None:
+        #plt.savefig(OUTPUT_DIR / f"ped_overall_{name}_{year}.png")
+        pass
+    else:
+        plt.savefig(OUTPUT_DIR / f"ped_overall_{name}.png")
+    plt.close(fig)
