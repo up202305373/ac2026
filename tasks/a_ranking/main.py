@@ -19,7 +19,11 @@ from evaluate import generate_graphs
 OUTPUT_DIR = config.LOG_DIR
 LOG_FILE = OUTPUT_DIR / "output.log"
 TEST_YEARS = config.TEST_YEARS
-TRAIN_WINDOW = config.PREVIOUS_YEARS[-1]
+
+def indent(text, spaces: int) -> str:
+    prefix = " " * spaces
+    return "\n".join(prefix + line for line in str(text).splitlines())
+
 
 def setup_logging() -> logging.Logger:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -44,12 +48,17 @@ def load_actual_teams(year: int) -> pd.DataFrame:
 
 def log_summary(log, header: str, graph_name: str, results: list) -> None:
     summary = pd.DataFrame(results)
-    log.info(f"\n===== Overall: {header} =====")
-    log.info(f"Mean spearman: {summary['spearman'].mean():.3f} (sd {summary['spearman'].std():.3f})")
-    log.info(f"Mean league position error: {summary['mean_pos_error'].mean():.2f} spots (sd {summary['mean_pos_error'].std():.2f})")
-    log.info(f"Mean divisional position error: {summary['div_mean_pos_error'].mean():.2f} spots (sd {summary['div_mean_pos_error'].std():.2f})")
-    log.info(f"League positions correct: {summary['league_correct'].sum()}/{summary['league_total'].sum()}")
-    log.info(f"Divisional positions correct: {summary['div_correct'].sum()}/{summary['div_total'].sum()}")
+    log.info(f"\n ===== Overall: {header} =====")
+    log.info("  Mean spearman: {:.3f} (sd {:.3f})".format(
+        summary["spearman"].mean(), summary["spearman"].std()))
+    log.info("  Mean league position error: {:.2f} spots (sd {:.2f})".format(
+        summary["mean_pos_error"].mean(), summary["mean_pos_error"].std()))
+    log.info("  Mean divisional position error: {:.2f} spots (sd {:.2f})".format(
+        summary["div_mean_pos_error"].mean(), summary["div_mean_pos_error"].std()))
+    log.info("  League positions correct: {}/{}".format(
+        summary["league_correct"].sum(), summary["league_total"].sum()))
+    log.info("  Divisional positions correct: {}/{}".format(
+        summary["div_correct"].sum(), summary["div_total"].sum()))
 
     comparison = pd.concat([r["comparison"] for r in results], ignore_index=True)
     div = pd.concat([r["div"] for r in results], ignore_index=True)
@@ -60,26 +69,28 @@ def main() -> None:
     results_by_model = {exp["name"]: [] for exp in config.EXPERIMENTS}
 
     for test_year in TEST_YEARS:
-        sampler(train_from=test_year - TRAIN_WINDOW, train_until=test_year - 1, test_year=test_year)
+        sampler(1984, train_until=test_year - 1, test_year=test_year)
         train_data = pd.read_csv(ROOT / "data" / "train" / "Teams.csv")
         test_data = pd.read_csv(ROOT / "data" / "test" / "Teams.csv")
 
         test_year = int(test_data["year"].iloc[0])
         actual_test = load_actual_teams(test_year)
+        log.info(f"\n ===== Year: {test_year} =====")
 
         for exp in config.EXPERIMENTS:
             name = exp["name"]
             train_and_predict = MODELS[exp["model"]]
+            extra = {k: v for k, v in exp.items() if k not in ("name", "model", "alphas")}
             for alpha in exp.get("alphas", [None]):
                 label = f"{name}_alpha_{alpha}" if alpha is not None else name
                 header = f"{name} (alpha={alpha})" if alpha is not None else name
-                log.info(f"\n===== Model: {header} =====")
-                kwargs = {"alpha": alpha} if alpha is not None else {}
+                log.info(f"\n  ===== Model: {header} =====")
+                kwargs = {**extra, **({"alpha": alpha} if alpha is not None else {})}
                 predictions = train_and_predict(train_data, test_data, **kwargs)
-                log.info("Predictions:")
-                log.info(predictions.to_string(index=False))
-                log.info(f"\nTest metrics ({test_year}):")
-                result = evaluate_ranking(predictions, actual_test, name, test_year)
+                log.info("   Predictions:")
+                log.info(indent(predictions.to_string(index=False), 4))
+                log.info("\n   Test metrics:")
+                result = evaluate_ranking(predictions, actual_test, name, test_year, indent="    ")
                 results_by_model[name].append({"model": label, "year": test_year, **result})
 
         print(f"\nlog written to {LOG_FILE}")

@@ -146,10 +146,46 @@ def build_rows(teams, roster_scoring, roster_goalies, prior_scoring, prior_goali
         rows.append({"year": year, "franchID": franchID, **feats})
     return pd.DataFrame(rows)
 
+def build_features(teams, roster_scoring, roster_goalies, prior_scoring, prior_goalies_all, target_year, prior_teams, previous_years=1) -> pd.DataFrame:
+    """Build target-year features from the last N available prior seasons.
+
+    Each prior season produces one full feature table via build_rows(); the
+    tables are then averaged per franchise. With previous_years=1 this returns
+    exactly what build_rows() would have returned on its own.
+    """
+    previous_years = int(previous_years)
+    if previous_years < 1:
+        raise ValueError("previous_years must be >= 1")
+
+    seasons = sorted({int(y) for y in prior_scoring["year"] if y < target_year})[-previous_years:]
+    if not seasons:
+        raise ValueError(f"No prior seasons available before {target_year}")
+
+    frames = []
+    for season in seasons:
+        frames.append(build_rows(
+            teams, roster_scoring, roster_goalies,
+            prior_scoring[prior_scoring["year"] <= season],
+            prior_goalies_all[prior_goalies_all["year"] <= season],
+            target_year,
+            prior_teams[prior_teams["year"] <= season],
+        ))
+
+    if len(frames) == 1:
+        return frames[0]
+
+    all_features = pd.concat(frames, ignore_index=True)
+    feature_cols = [c for c in all_features.columns if c not in ("year", "franchID")]
+    averaged = all_features.groupby("franchID")[feature_cols].mean()
+    out = all_features[["year", "franchID"]].drop_duplicates().merge(
+        averaged, left_on="franchID", right_index=True, how="left")
+    out["year"] = target_year
+    return out[["year", "franchID"] + feature_cols].reset_index(drop=True)
+
 def load_players(split: str) -> dict:
     return {t: pd.read_csv(DATA_DIR / split / f"{t}.csv") for t in ("Scoring", "Goalies")}
 
-def train_and_predict(train_data, test_data, train_players=None, test_players=None, alpha=30.0, features=None) -> pd.DataFrame:
+def train_and_predict(train_data, test_data, train_players=None, test_players=None, alpha=30.0, features=None, previous_years=1) -> pd.DataFrame:
     """Trains a ridge model on prior seasons and predicts the test-year rankings."""
     cols = features_for(features) if features is not None else FEATURES
     train_players = train_players or load_players("train")
@@ -160,10 +196,11 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
         earlier = train_data[train_data["year"] < year]
         if earlier.empty:
             continue
-        feats = build_rows(
+        feats = build_features(
             train_data, train_players["Scoring"], train_players["Goalies"],
             train_players["Scoring"][train_players["Scoring"]["year"] < year],
-            train_players["Goalies"][train_players["Goalies"]["year"] < year], year, earlier,
+            train_players["Goalies"][train_players["Goalies"]["year"] < year],
+            year, earlier, previous_years,
         )
         target = train_data.loc[train_data["year"] == year, ["franchID", "Pts"]]
         frames.append(feats.merge(target, on="franchID"))
@@ -173,9 +210,9 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
     model.fit(train_rows[cols], train_rows["Pts"].astype(float))
 
     test_year = int(test_data["year"].iloc[0])
-    test_feats = build_rows(
+    test_feats = build_features(
         test_data, test_players["Scoring"], test_players["Goalies"],
-        train_players["Scoring"], train_players["Goalies"], test_year, train_data,
+        train_players["Scoring"], train_players["Goalies"], test_year, train_data, previous_years,
     ).dropna(subset=cols)
     return pd.DataFrame({
         "year": test_feats["year"].values,

@@ -7,7 +7,7 @@ log = logging.getLogger("a_ranking")
 
 OUTPUT_DIR = Path(__file__).resolve().parents[0] / "plots"
 
-def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str, year: int) -> dict:
+def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str, year: int, indent: str = "") -> dict:
     prediction_columns = {"year", "franchID", "predicted_pts"}
     actual_columns = {"year", "franchID", "Pts", "divID", "rank"}
 
@@ -48,14 +48,14 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str,
         .astype(int)
     )
     league_correct = int((comparison["predicted_pos"] == comparison["actual_pos"]).sum())
-    log.info(f"League positions: {league_correct}/{len(comparison)} correct")
+    log.info(f"{indent}League positions: {league_correct}/{len(comparison)} correct")
 
     spearman = comparison.groupby("year").apply(lambda s: spearmanr(s["predicted_pos"], s["actual_pos"]).statistic).mean()
     comparison["pos_error"] = (comparison["predicted_pos"] - comparison["actual_pos"]).abs()
     mean_pos_error = comparison["pos_error"].mean()
 
-    log.info(f"League spearman correlation: {spearman:.3f}")
-    log.info(f"League mean absolute position error: {mean_pos_error:.2f} spots")
+    log.info(f"{indent}League spearman correlation: {spearman:.3f}")
+    log.info(f"{indent}League mean absolute position error: {mean_pos_error:.2f} spots")
 
     # Divisional positions
     div = comparison[comparison["divID"].notna()].copy()
@@ -65,12 +65,12 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str,
         .astype(int)
     )
     div_correct = int((div["predicted_div_pos"] == div["rank"].astype(int)).sum())
-    log.info(f"Divisional positions: {div_correct}/{len(div)} correct")
+    log.info(f"{indent}Divisional positions: {div_correct}/{len(div)} correct")
 
     div["div_pos_error"] = (div["predicted_div_pos"] - div["rank"]).abs()
     div_mean_pos_error = div["div_pos_error"].mean()
 
-    log.info(f"Mean absolute divisional position error: {div_mean_pos_error:.2f} spots")
+    log.info(f"{indent}Mean absolute divisional position error: {div_mean_pos_error:.2f} spots")
 
     generate_graphs(comparison, div, name, year)
 
