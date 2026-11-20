@@ -45,8 +45,9 @@ def main() -> None:
     log = setup_logging()
 
     baseline_results = []
-    roster_results = []
-    results_by_model = {"baseline": baseline_results, "roster": roster_results}
+    roster1_results = []
+    roster2_results = []
+    results_by_model = {"baseline": baseline_results, "roster1": roster1_results, "roster2": roster2_results}
 
     for test_year in TEST_YEARS:
         sampler(train_from=test_year - 5, train_until=test_year - 1, test_year=test_year)
@@ -57,7 +58,7 @@ def main() -> None:
         actual_test = load_actual_teams(test_year)
 
         for name, train_and_predict in MODELS.items():
-            if name == "roster":
+            if name == "roster1" or name == "roster2":
                 for alpha in ALPHAS:
                     log.info(f"\n===== Model: {name} (alpha={alpha}) =====")
                     predictions = train_and_predict(train_data, test_data, alpha=alpha)
@@ -79,7 +80,7 @@ def main() -> None:
 
         
     for name, results in results_by_model.items():
-        if name == "roster":
+        if name == "roster1" or name == "roster2":
             for alpha in ALPHAS:
                 filtered_results = [r for r in results if r["model"] == f"{name}_alpha_{alpha}"]
                 if filtered_results:
