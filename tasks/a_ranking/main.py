@@ -31,7 +31,7 @@ def setup_logging() -> logging.Logger:
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
 
-    file_handler = logging.FileHandler(LOG_FILE, mode="w")
+    file_handler = logging.FileHandler(LOG_FILE, mode="a")
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
 
@@ -69,7 +69,7 @@ def main() -> None:
     results_by_model = {exp["name"]: [] for exp in config.EXPERIMENTS}
 
     for test_year in TEST_YEARS:
-        sampler(1984, train_until=test_year - 1, test_year=test_year)
+        sampler(1995, train_until=test_year - 1, test_year=test_year)
         train_data = pd.read_csv(ROOT / "data" / "train" / "Teams.csv")
         test_data = pd.read_csv(ROOT / "data" / "test" / "Teams.csv")
 
