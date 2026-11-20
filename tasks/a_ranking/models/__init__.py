@@ -1,7 +1,8 @@
-from models import baseline, roster1, roster2
+from functools import partial
+from models import baseline, roster
 
 MODELS = {
     "baseline": baseline.train_and_predict,
-    "roster1": roster1.train_and_predict,
-    "roster2": roster2.train_and_predict,
+    "roster1": partial(roster.train_and_predict, features=("base",)),
+    "roster2": partial(roster.train_and_predict, features=("base", "shots", "special")),
 }
