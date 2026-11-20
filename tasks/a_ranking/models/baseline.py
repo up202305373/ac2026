@@ -19,8 +19,10 @@ def train_and_predict(train_data: pd.DataFrame, test_data: pd.DataFrame) -> pd.D
         .rename(columns={"year": "previous_year", "Pts": "predicted_pts"})
     )
 
+    # Use the latest season available in training data.
+    previous_year = int(train_data["year"].max())
     predictions = test_data[["year", "franchID"]].copy()
-    predictions["previous_year"] = predictions["year"] - 1
+    predictions["previous_year"] = previous_year 
     predictions = predictions.merge(
         previous_pts,
         on=["previous_year", "franchID"],
