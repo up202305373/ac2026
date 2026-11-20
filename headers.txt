@@ -1,0 +1,69 @@
+File: AwardsCoaches.csv
+coachID,award,year,lgID,note
+------------------------
+File: AwardsMisc.csv
+name,ID,award,year,lgID,note
+------------------------
+File: AwardsPlayers.csv
+playerID,award,year,lgID,note,pos
+------------------------
+File: Coaches.csv
+coachID,year,tmID,lgID,stint,notes,g,w,l,t,postg,postw,postl,postt
+------------------------
+File: CombinedShutouts.csv
+year,month,date,tmID,oppID,R/P,IDgoalie1,IDgoalie2
+------------------------
+File: Goalies.csv
+playerID,year,stint,tmID,lgID,GP,Min,W,L,T/OL,ENG,SHO,GA,SA,PostGP,PostMin,PostW,PostL,PostT,PostENG,PostSHO,PostGA,PostSA
+------------------------
+File: GoaliesSC.csv
+playerID,year,tmID,lgID,GP,Min,W,L,T,SHO,GA
+------------------------
+File: GoaliesShootout.csv
+playerID,year,stint,tmID,W,L,SA,GA
+------------------------
+File: HOF.csv
+year,hofID,name,category
+------------------------
+File: Master.csv
+playerID,coachID,hofID,firstName,lastName,nameNote,nameGiven,nameNick,height,weight,shootCatch,legendsID,ihdbID,hrefID,firstNHL,lastNHL,firstWHA,lastWHA,pos,birthYear,birthMon,birthDay,birthCountry,birthState,birthCity,deathYear,deathMon,deathDay,deathCountry,deathState,deathCity
+------------------------
+File: Scoring.csv
+playerID,year,stint,tmID,lgID,pos,GP,G,A,Pts,PIM,+/-,PPG,PPA,SHG,SHA,GWG,GTG,SOG,PostGP,PostG,PostA,PostPts,PostPIM,Post+/-,PostPPG,PostPPA,PostSHG,PostSHA,PostGWG,PostSOG
+------------------------
+File: ScoringSC.csv
+playerID,year,tmID,lgID,pos,GP,G,A,Pts,PIM
+------------------------
+File: ScoringShootout.csv
+playerID,year,stint,tmID,S,G,GDG
+------------------------
+File: ScoringSup.csv
+playerID,year,PPA,SHA
+------------------------
+File: SeriesPost.csv
+year,round,series,tmIDWinner,lgIDWinner,tmIDLoser,lgIDLoser,W,L,T,GoalsWinner,GoalsLoser,note
+------------------------
+File: TeamSplits.csv
+year,lgID,tmID,hW,hL,hT,hOTL,rW,rL,rT,rOTL,SepW,SepL,SepT,SepOL,OctW,OctL,OctT,OctOL,NovW,NovL,NovT,NovOL,DecW,DecL,DecT,DecOL,JanW,JanL,JanT,JanOL,FebW,FebL,FebT,FebOL,MarW,MarL,MarT,MarOL,AprW,AprL,AprT,AprOL
+------------------------
+File: TeamVsTeam.csv
+year,lgID,tmID,oppID,W,L,T,OTL
+------------------------
+File: Teams.csv
+year,lgID,tmID,franchID,confID,divID,rank,playoff,G,W,L,T,OTL,Pts,SoW,SoL,GF,GA,name,PIM,BenchMinor,PPG,PPC,SHA,PKG,PKC,SHF
+------------------------
+File: TeamsHalf.csv
+year,lgID,tmID,half,rank,G,W,L,T,GF,GA
+------------------------
+File: TeamsPost.csv
+year,lgID,tmID,G,W,L,T,GF,GA,PIM,BenchMinor,PPG,PPC,SHA,PKG,PKC,SHF
+------------------------
+File: TeamsSC.csv
+year,lgID,tmID,G,W,L,T,GF,GA,PIM
+------------------------
+File: abbrev.csv
+Type,Code,Fullname
+------------------------
+File: tttt.txt
+File: AwardsCoaches.csv
+------------------------

@@ -16,7 +16,7 @@ from src.sampler import sampler
 
 OUTPUT_DIR = ROOT / "tasks" / "b_coach_change" / "logs"
 LOG_FILE = OUTPUT_DIR / "output.log"
-TEST_YEARS = [2003, 2007, 2009]
+TEST_YEARS = list(range(2005, 2009))
 
 def setup_logging() -> logging.Logger:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -48,13 +48,20 @@ def load_actual_coach_changes(year: int) -> pd.DataFrame:
         
         return last_coach[last_coach['year'] == year].copy()
 
+def load_csv_safe(path: Path) -> pd.DataFrame:
+    """Helper to bypass missing files gracefully if sampler exclusions happen."""
+    try:
+        return pd.read_csv(path)
+    except FileNotFoundError:
+        return pd.DataFrame()
+
 def main() -> None:
     log = setup_logging()
 
     for test_year in TEST_YEARS:
-        sampler(train_from=test_year - 5, train_until=test_year - 1, test_year=test_year)
+        sampler(train_from=test_year - 50, train_until=test_year - 1, test_year=test_year)
         
-        # Task B requires both Coaches and Teams data to generate features
+        # Load Core Data
         train_teams = pd.read_csv(ROOT / "data" / "train" / "Teams.csv")
         train_coaches = pd.read_csv(ROOT / "data" / "train" / "Coaches.csv")
         train_data = pd.merge(train_coaches, train_teams[train_teams['lgID'] == 'NHL'], on=['year', 'tmID'])
@@ -63,15 +70,55 @@ def main() -> None:
         test_coaches = pd.read_csv(ROOT / "data" / "test" / "Coaches.csv")
         test_data = pd.merge(test_coaches, test_teams[test_teams['lgID'] == 'NHL'], on=['year', 'tmID'])
 
-        # Ground truth is fetched securely from the database
+        # Load Existing Supplementary Feature Data
+        train_splits = pd.read_csv(ROOT / "data" / "train" / "TeamSplits.csv")
+        train_awards = pd.read_csv(ROOT / "data" / "train" / "AwardsCoaches.csv")
+        test_splits = pd.read_csv(ROOT / "data" / "test" / "TeamSplits.csv")
+        test_awards = pd.read_csv(ROOT / "data" / "test" / "AwardsCoaches.csv")
+
+        # Load New Contextual Data for Roster & Expectations
+        train_scoring = load_csv_safe(ROOT / "data" / "train" / "Scoring.csv")
+        test_scoring = load_csv_safe(ROOT / "data" / "test" / "Scoring.csv")
+        
+        train_awards_players = load_csv_safe(ROOT / "data" / "train" / "AwardsPlayers.csv")
+        test_awards_players = load_csv_safe(ROOT / "data" / "test" / "AwardsPlayers.csv")
+        
+        train_goalies = load_csv_safe(ROOT / "data" / "train" / "Goalies.csv")
+        test_goalies = load_csv_safe(ROOT / "data" / "test" / "Goalies.csv")
+        
+        train_master = load_csv_safe(ROOT / "data" / "train" / "Master.csv")
+        test_master = load_csv_safe(ROOT / "data" / "test" / "Master.csv")
+        
+        train_teams_half = load_csv_safe(ROOT / "data" / "train" / "TeamsHalf.csv")
+        test_teams_half = load_csv_safe(ROOT / "data" / "test" / "TeamsHalf.csv")
+
         actual_test = load_actual_coach_changes(test_year)
 
         for name, train_and_predict in MODELS.items():
             log.info(f"\n===== Model: {name} =====")
 
-            predictions = train_and_predict(train_data, test_data)
-            log.info("Predictions:")
-            log.info(predictions.to_string(index=False))
+            # Pass all extended datasets through to the model
+            predictions = train_and_predict(
+                train_data=train_data, 
+                test_data=test_data,
+                train_splits=train_splits,
+                train_awards=train_awards,
+                test_splits=test_splits,
+                test_awards=test_awards,
+                train_scoring=train_scoring,
+                test_scoring=test_scoring,
+                train_awards_players=train_awards_players,
+                test_awards_players=test_awards_players,
+                train_goalies=train_goalies,
+                test_goalies=test_goalies,
+                train_master=train_master,
+                test_master=test_master,
+                train_teams_half=train_teams_half,
+                test_teams_half=test_teams_half
+            )
+            
+            # log.info("Predictions:")
+            # log.info(predictions.to_string(index=False))
 
             log.info(f"\nTest metrics ({test_year}):")
             evaluate_coach_change(predictions, actual_test)

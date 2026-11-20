@@ -407,3 +407,5 @@ print(load("SELECT DISTINCT pos FROM SCORING WHERE LENGTH(POS) > 1"))
 ```
 
 Some players have multiple positions listed, some with completely different roles.
+
+It seems that the main position is listed first, as there are a few Goalkeepers who had to play at other positions, but there is no case of any other position having played as a goalkeeper.
