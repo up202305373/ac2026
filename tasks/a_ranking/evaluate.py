@@ -37,9 +37,6 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str,
     if comparison.empty:
         raise ValueError("No teams with both predicted and actual points")
 
-    # League-wide positions are only used for the Spearman correlation and the
-    # position-error plot. There is no league rank in the data, so divisional
-    # rank below is the actual target.
     comparison["predicted_pos"] = (
         comparison.groupby("year")["predicted_pts"]
         .rank(method="first", ascending=False)
@@ -50,6 +47,7 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str,
         .rank(method="first", ascending=False)
         .astype(int)
     )
+
     comparison["pos_error"] = (comparison["predicted_pos"] - comparison["actual_pos"]).abs()
     spearman = comparison.groupby("year").apply(
         lambda s: spearmanr(s["predicted_pos"], s["actual_pos"]).statistic).mean()

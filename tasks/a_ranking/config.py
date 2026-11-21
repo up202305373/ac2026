@@ -10,6 +10,7 @@ TEST_YEARS = [2000, 2001, 2002, 2003, 2006, 2007, 2008, 2009]
 ALPHAS = [0.1, 0.3, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0]
 
 EXPERIMENTS = [
+    # Compare different roster feature sets.
     {"name": "baseline",       "model": "baseline"},
     {"name": "roster_base",    "model": "roster_base",    "validation_alphas": ALPHAS, "previous_years": 1},
     {"name": "roster_all",     "model": "roster_all",     "validation_alphas": ALPHAS, "previous_years": 1},
@@ -18,14 +19,13 @@ EXPERIMENTS = [
     {"name": "roster_pts",     "model": "roster_pts",     "validation_alphas": ALPHAS, "previous_years": 1},
     {"name": "roster_all_pts", "model": "roster_all_pts", "validation_alphas": ALPHAS, "previous_years": 1},
 
-    # Same models, aggregating the last 2 / 3 available prior seasons.
+    # Aggregating the last 2 / 3 available prior seasons.
     {"name": "roster_base_lookback2", "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 2},
     {"name": "roster_all_lookback2",  "model": "roster_all",  "validation_alphas": ALPHAS, "previous_years": 2},
     {"name": "roster_base_lookback3", "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 3},
     {"name": "roster_all_lookback3",  "model": "roster_all",  "validation_alphas": ALPHAS, "previous_years": 3},
 
-    # One-knob sweeps on the base roster model: N_FORWARDS 3 / 6 / all
-    # (12 is the default), MIN_SKATER_GP 40, MIN_GOALIE_GP 20.
+    # Individual parameter experiments.
     {"name": "roster_nf3",   "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "n_forwards": 3},
     {"name": "roster_nf6",   "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "n_forwards": 6},
     {"name": "roster_nfall", "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "n_forwards": "all"},
