@@ -9,4 +9,6 @@ MODELS = {
     "roster_special": partial(roster.train_and_predict, features=("base", "special")),
     "roster_pts":     partial(roster.train_and_predict, features=("base", "prior_pts")),
     "roster_all_pts": partial(roster.train_and_predict, features=("base", "shots", "special", "prior_pts")),
+    "roster_base_age": partial(roster.train_and_predict, features=("base", "age")),
+    "roster_all_age":  partial(roster.train_and_predict, features=("base", "shots", "special", "age")),
 }

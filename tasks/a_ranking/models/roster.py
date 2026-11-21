@@ -28,6 +28,7 @@ FEATURE_GROUPS = {
     "shots":     ["shot_diff", "shoot_pct", "team_sv_pct"],
     "special":   ["pp_pct", "pk_pct"],
     "prior_pts": ["prior_pts"],
+    "age": ["age_mean", "age_std", "age_veteran_share"],
 }
 
 def features_for(groups):
@@ -95,7 +96,7 @@ def prior_special_features(teams, year: int) -> pd.DataFrame:
     return rates.groupby("franchID")[["pp_pct", "pk_pct"]].mean()
 
 def team_features(skaters, goalies, prior_sk, prior_g, league, prior_player_ids=None,
-                  knobs=None) -> dict:
+                  knobs=None, year=None) -> dict:
     """Builds 3 team features from current-roster players and prior-season data."""
     knobs = knobs or DEFAULT_KNOBS
     sk = skaters.copy()
@@ -119,11 +120,25 @@ def team_features(skaters, goalies, prior_sk, prior_g, league, prior_player_ids=
     """2) Save percentage of the goalie with the most prior-season GP, or league average if no goalies qualify."""
     """3) Proportion of roster players not seen in the prior season, or NaN if the roster is empty"""
 
-    return {
+    features = {
         "fwd_ppg": fwd if pd.notna(fwd) else league["ppg"],
         "goalie_svpct": svpct,
         "new_share": (~roster["playerID"].isin(prior_player_ids)).mean() if len(roster) else np.nan,
     }
+    if knobs.get("use_age"):
+        age_map = knobs.get("age_map", {})
+        ages = [year - age_map[pid] for pid in roster["playerID"]
+                if pid in age_map and pd.notna(age_map[pid])]
+        if ages:
+            a = np.asarray(ages, dtype=float)
+            features.update({
+                "age_mean": a.mean(),
+                "age_std": a.std(),
+                "age_veteran_share": float((a >= 30).mean()),
+            })
+        else:
+            features.update({c: np.nan for c in FEATURE_GROUPS["age"]})
+    return features
 
 def previous_season(years, year):
     """Returns the most recent available season before the target year."""
@@ -155,7 +170,7 @@ def build_rows(teams, roster_scoring, roster_goalies, prior_scoring, prior_goali
         feats = team_features(
             roster_sk[roster_sk["tmID"] == tmID],
             roster_g[roster_g["tmID"] == tmID],
-            prior_sk, prior_g, league, prior_player_ids, knobs,
+            prior_sk, prior_g, league, prior_player_ids, knobs, year,
         )
         feats["team_gd"] = team_gd.get(franchID, team_gd.mean())
         feats["prior_pts"] = prior_pts.get(franchID, prior_pts.mean())
@@ -204,7 +219,8 @@ def build_features(teams, roster_scoring, roster_goalies, prior_scoring, prior_g
     return out[["year", "franchID"] + feature_cols].reset_index(drop=True)
 
 def load_players(split: str) -> dict:
-    return {t: pd.read_csv(DATA_DIR / split / f"{t}.csv") for t in ("Scoring", "Goalies")}
+    return {t: pd.read_csv(DATA_DIR / split / f"{t}.csv")
+            for t in ("Scoring", "Goalies", "Master")}
 
 def make_model(alpha):
     return make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), Ridge(alpha))
@@ -266,7 +282,7 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
                       alpha=None, features=None, previous_years=1,
                       validation_alphas=VALIDATION_ALPHAS,
                       n_forwards=N_FORWARDS, min_skater_gp=MIN_SKATER_GP,
-                      min_goalie_gp=MIN_GOALIE_GP) -> pd.DataFrame:
+                      min_goalie_gp=MIN_GOALIE_GP, use_age=False) -> pd.DataFrame:
     """Trains a ridge model on prior seasons and predicts the test-year rankings.
 
     alpha=None selects the value on a held-out training season; the chosen
@@ -279,7 +295,11 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
         "n_forwards": n_forwards,
         "min_skater_gp": min_skater_gp,
         "min_goalie_gp": min_goalie_gp,
+        "use_age": use_age,
     }
+    if use_age:
+        master = test_players.get("Master", train_players.get("Master"))
+        knobs["age_map"] = dict(zip(master["playerID"], master["birthYear"]))
 
     selected_alpha = None
     if alpha is None:

@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
 import pandas as pd
 
 from evaluate import evaluate_ranking
-from models import MODELS
+from models import MODELS, roster
 from src.sampler import sampler
 from evaluate import generate_graphs
 
@@ -47,6 +47,10 @@ def load_actual_teams(year: int) -> pd.DataFrame:
         )
 
 def log_summary(log, header: str, graph_name: str, results: list) -> None:
+    if not results:
+        log.info(f"\n ===== Overall: {header} =====")
+        log.info("  No usable results")
+        return
     summary = pd.DataFrame(results)
     log.info(f"\n ===== Overall: {header} =====")
     log.info("  Mean divisional position error: {:.2f} spots (sd {:.2f})".format(
@@ -67,11 +71,23 @@ def log_summary(log, header: str, graph_name: str, results: list) -> None:
 def main() -> None:
     log = setup_logging()
     results_by_model = {exp["name"]: [] for exp in config.EXPERIMENTS}
+    data_cache = {}
+
+    def get_data(year: int, train_from: int):
+        """Sampler output for one (test year, training window) pair."""
+        key = (year, train_from)
+        if key not in data_cache:
+            sampler(train_from, train_until=year - 1, test_year=year)
+            data_cache[key] = (
+                pd.read_csv(ROOT / "data" / "train" / "Teams.csv"),
+                pd.read_csv(ROOT / "data" / "test" / "Teams.csv"),
+                roster.load_players("train"),
+                roster.load_players("test"),
+            )
+        return data_cache[key]
 
     for test_year in TEST_YEARS:
-        sampler(1995, train_until=test_year - 1, test_year=test_year)
-        train_data = pd.read_csv(ROOT / "data" / "train" / "Teams.csv")
-        test_data = pd.read_csv(ROOT / "data" / "test" / "Teams.csv")
+        train_data, test_data, _, _ = get_data(test_year, 1995)
 
         test_year = int(test_data["year"].iloc[0])
         actual_test = load_actual_teams(test_year)
@@ -80,12 +96,21 @@ def main() -> None:
         for exp in config.EXPERIMENTS:
             name = exp["name"]
             train_and_predict = MODELS[exp["model"]]
-            extra = {k: v for k, v in exp.items() if k not in ("name", "model", "alphas")}
+            extra = {k: v for k, v in exp.items()
+                     if k not in ("name", "model", "alphas", "train_from")}
             for alpha in exp.get("alphas", [None]):
                 label = f"{name}_alpha_{alpha}" if alpha is not None else name
                 header = f"{name} (alpha={alpha})" if alpha is not None else name
                 log.info(f"\n  ===== Model: {header} =====")
-                kwargs = {**extra, **({"alpha": alpha} if alpha is not None else {})}
+                train_data, test_data, train_players, test_players = get_data(
+                    test_year, exp.get("train_from", 1995))
+                if train_data["year"].nunique() < 2:
+                    log.info("   Skipped: no usable training window before this year")
+                    continue
+                players = ({"train_players": train_players, "test_players": test_players}
+                           if exp["model"] != "baseline" else {})
+                kwargs = {**extra, **players,
+                          **({"alpha": alpha} if alpha is not None else {})}
                 predictions = train_and_predict(train_data, test_data, **kwargs)
                 if "selected_alpha" in predictions.attrs:
                     log.info("   Selected alpha (validation): {}".format(

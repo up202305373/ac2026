@@ -31,4 +31,18 @@ EXPERIMENTS = [
     {"name": "roster_nfall", "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "n_forwards": "all"},
     {"name": "roster_gp40",  "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "min_skater_gp": 40},
     {"name": "roster_gk20",  "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "min_goalie_gp": 20},
+
+    # Training window: how far back the sampler draws training seasons.
+    {"name": "roster_base_from1980", "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "train_from": 1980},
+    {"name": "roster_all_from1980",  "model": "roster_all",  "validation_alphas": ALPHAS, "previous_years": 1, "train_from": 1980},
+    {"name": "roster_base_from1985", "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "train_from": 1985},
+    {"name": "roster_all_from1985",  "model": "roster_all",  "validation_alphas": ALPHAS, "previous_years": 1, "train_from": 1985},
+    {"name": "roster_base_from1990", "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "train_from": 1990},
+    {"name": "roster_all_from1990",  "model": "roster_all",  "validation_alphas": ALPHAS, "previous_years": 1, "train_from": 1990},
+    {"name": "roster_base_from2000", "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "train_from": 2000},
+    {"name": "roster_all_from2000",  "model": "roster_all",  "validation_alphas": ALPHAS, "previous_years": 1, "train_from": 2000},
+
+    # Roster age from Master (mean, spread, share aged 30+).
+    {"name": "roster_base_age", "model": "roster_base_age", "validation_alphas": ALPHAS, "previous_years": 1, "use_age": True},
+    {"name": "roster_all_age",  "model": "roster_all_age",  "validation_alphas": ALPHAS, "previous_years": 1, "use_age": True},
 ]
