@@ -241,6 +241,8 @@ def training_rows(train_data, train_players, cols, previous_years, knobs=None) -
         )
         target = train_data.loc[train_data["year"] == year, ["franchID", "Pts"]]
         frames.append(feats.merge(target, on="franchID"))
+    if not frames:
+        return pd.DataFrame(columns=["year", "franchID", "Pts", *cols])
     return pd.concat(frames).dropna(subset=cols + ["Pts"])
 
 
@@ -251,7 +253,7 @@ def select_alpha(train_data, train_players, cols, previous_years, alphas=VALIDAT
     this stays a rolling-origin validation and never touches test-year labels.
     """
     seasons = sorted(train_data["year"].unique())
-    if len(seasons) < 2:
+    if len(seasons) < 3:
         return alphas[len(alphas) // 2]
 
     val_year = seasons[-1]

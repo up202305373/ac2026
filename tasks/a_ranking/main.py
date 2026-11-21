@@ -11,10 +11,9 @@ if str(ROOT) not in sys.path:
 
 import pandas as pd
 
-from evaluate import evaluate_ranking
+from evaluate import evaluate_ranking, generate_graphs
 from models import MODELS, roster
 from src.sampler import sampler
-from evaluate import generate_graphs
 
 OUTPUT_DIR = config.LOG_DIR
 LOG_FILE = OUTPUT_DIR / "output.log"
@@ -24,6 +23,9 @@ def indent(text, spaces: int) -> str:
     prefix = " " * spaces
     return "\n".join(prefix + line for line in str(text).splitlines())
 
+def sd_text(values, decimals: int = 2) -> str:
+    value = pd.Series(values).std()
+    return f"{value:.{decimals}f}" if pd.notna(value) else "n/a"
 
 def setup_logging() -> logging.Logger:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -46,27 +48,38 @@ def load_actual_teams(year: int) -> pd.DataFrame:
             params=(year,),
         )
 
-def log_summary(log, header: str, graph_name: str, results: list) -> None:
+def log_summary(log, header: str, results: list) -> None:
     if not results:
         log.info(f"\n ===== Overall: {header} =====")
         log.info("  No usable results")
         return
     summary = pd.DataFrame(results)
     log.info(f"\n ===== Overall: {header} =====")
-    log.info("  Mean divisional position error: {:.2f} spots (sd {:.2f})".format(
-        summary["div_mean_pos_error"].mean(), summary["div_mean_pos_error"].std()))
-    log.info("  Divisional positions correct: {}/{}".format(
-        summary["div_correct"].sum(), summary["div_total"].sum()))
-    log.info("  Division winners correct: {}/{}".format(
-        summary["div_winners_correct"].sum(), summary["div_winners_total"].sum()))
-    log.info("  Mean spearman: {:.3f} (sd {:.3f})".format(
-        summary["spearman"].mean(), summary["spearman"].std()))
-    log.info("  Mean points MAE: {:.2f} (RMSE {:.2f})".format(
-        summary["points_mae"].mean(), summary["points_rmse"].mean()))
+    log.info("  Years: {}".format(", ".join(str(int(y)) for y in sorted(summary["year"]))))
+    log.info("  Mean divisional position error: {:.2f} spots (sd {})".format(
+        summary["div_mean_pos_error"].mean(), sd_text(summary["div_mean_pos_error"])))
+    log.info("  Divisional positions correct: {}/{} (mean {:.1f}/year, sd {})".format(
+        summary["div_correct"].sum(), summary["div_total"].sum(),
+        summary["div_correct"].mean(), sd_text(summary["div_correct"], 1)))
+    log.info("  Division winners correct: {}/{} (mean {:.1f}/year, sd {})".format(
+        summary["div_winners_correct"].sum(), summary["div_winners_total"].sum(),
+        summary["div_winners_correct"].mean(), sd_text(summary["div_winners_correct"], 1)))
+    log.info("  Mean spearman: {:.3f} (sd {})".format(
+        summary["spearman"].mean(), sd_text(summary["spearman"], 3)))
+    log.info("  Mean points MAE: {:.2f} (sd {}); RMSE {:.2f} (sd {})".format(
+        summary["points_mae"].mean(), sd_text(summary["points_mae"]),
+        summary["points_rmse"].mean(), sd_text(summary["points_rmse"])))
 
-    comparison = pd.concat([r["comparison"] for r in results], ignore_index=True)
-    div = pd.concat([r["div"] for r in results], ignore_index=True)
-    generate_graphs(comparison, div, graph_name)
+    per_year = pd.DataFrame({
+        "year": summary["year"].astype(int),
+        "div_ok": summary["div_correct"].astype(int),
+        "winners": summary["div_winners_correct"].astype(int),
+        "div_mae": summary["div_mean_pos_error"].round(2),
+        "spearman": summary["spearman"].round(3),
+        "pts_mae": summary["points_mae"].round(2),
+    }).sort_values("year")
+    log.info("\n  Per year:")
+    log.info(indent(per_year.to_string(index=False), 4))
 
 def main() -> None:
     log = setup_logging()
@@ -131,9 +144,11 @@ def main() -> None:
                 label = f"{name}_alpha_{alpha}"
                 filtered = [r for r in results if r["model"] == label]
                 if filtered:
-                    log_summary(log, f"{name} (alpha={alpha})", label, filtered)
+                    log_summary(log, f"{name} (alpha={alpha})", filtered)
         else:
-            log_summary(log, name, name, results)
+            log_summary(log, name, results)
+
+    generate_graphs(results_by_model)
 
 if __name__ == "__main__":
     main()

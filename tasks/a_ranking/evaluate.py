@@ -76,8 +76,6 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str,
     log.info(f"{indent}League spearman correlation: {spearman:.3f}")
     log.info(f"{indent}Points MAE: {points_mae:.2f} (RMSE {points_rmse:.2f})")
 
-    generate_graphs(comparison, div, name, year)
-
     return {
         "spearman": spearman,
         "points_mae": points_mae,
@@ -91,37 +89,124 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str,
         "div": div,
     }
 
-def generate_graphs(comparison, div, name, year=None) -> None:
+HEADLINE_MODELS = ("baseline", "roster_base", "roster_all",
+                   "roster_base_age", "roster_all_age")
+ERROR_MODELS = ("roster_base", "roster_all")
+
+def _metric_frame(results_by_model: dict, names: list) -> pd.DataFrame:
+    """Flatten per-year result dicts into a tidy metrics table."""
+    rows = []
+    for name in names:
+        for r in results_by_model[name]:
+            rows.append({
+                "model": name,
+                "year": int(r["year"]),
+                "div_correct": r["div_correct"],
+                "div_winners_correct": r["div_winners_correct"],
+                "div_mae": r["div_mean_pos_error"],
+                "points_mae": r["points_mae"],
+                "points_rmse": r["points_rmse"],
+            })
+    return pd.DataFrame(rows)
+
+
+def _plot_model_comparison(plt, metrics: pd.DataFrame, labels: list) -> None:
+    panels = (
+        (("div_correct",), "Divisional positions correct per season"),
+        (("div_winners_correct",), "Division winners correct per season"),
+        (("div_mae",), "Mean divisional position error (spots)"),
+        (("points_mae", "points_rmse"), "Points error per season"),
+    )
+    fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    grouped = metrics.groupby("model")
+    for ax, (columns, title) in zip(axes.ravel(), panels):
+        width = 0.8 / len(columns)
+        for i, column in enumerate(columns):
+            means = grouped[column].mean().reindex(labels)
+            sds = grouped[column].std().reindex(labels).fillna(0)
+            x = np.arange(len(labels)) + (i - (len(columns) - 1) / 2) * width
+            ax.bar(x, means, width=width, yerr=sds, capsize=3,
+                   color=colors[i], label=column)
+        ax.set_xticks(np.arange(len(labels)))
+        ax.set_xticklabels(labels, rotation=20, ha="right")
+        ax.set(title=title, ylim=(0, None))
+        ax.legend(fontsize=8)
+    fig.suptitle("Headline models over all test seasons (bars: mean, error bars: sd)", y=1.01)
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "model_comparison.png", dpi=150)
+    plt.close(fig)
+
+def _plot_per_year(plt, metrics: pd.DataFrame) -> None:
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    for ax, (column, title) in zip(axes, (
+        ("div_mae", "Mean divisional position error (spots)"),
+        ("points_mae", "Points MAE"),
+    )):
+        for name, group in metrics.groupby("model"):
+            yearly = group.groupby("year")[column].mean()
+            ax.plot(yearly.index, yearly.values, marker="o", markersize=4, label=name)
+        ax.axvline(2004, color="red", linestyle=":", linewidth=1.5)
+        ax.axvline(2005, color="gray", linestyle="--", linewidth=1.2)
+        ax.set(title=title, xlabel="Season (starting year)", ylabel=column)
+        ax.legend(fontsize=8)
+    fig.suptitle("Per-season performance (dotted: 2004 lockout, dashed: 2005 held out)", y=1.02)
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "per_year_trends.png", dpi=150)
+    plt.close(fig)
+
+def _concat(results_by_model: dict, name: str, key: str) -> pd.DataFrame:
+    return pd.concat([r[key] for r in results_by_model[name]], ignore_index=True)
+
+def _plot_error_distributions(plt, results_by_model: dict) -> None:
+    fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+    for row, name in enumerate(ERROR_MODELS):
+        if not results_by_model.get(name):
+            continue
+        comparison = _concat(results_by_model, name, "comparison")
+        div = _concat(results_by_model, name, "div")
+        for column, ax in (("pos_error", axes[row, 0]), ("div_pos_error", axes[row, 1])):
+            source = comparison if column == "pos_error" else div
+            counts = source[column].value_counts().sort_index()
+            ax.bar(counts.index, counts.values, width=1.0, edgecolor="black")
+            ax.set_xticks(range(0, int(counts.index.max()) + 1))
+            scope = "League-wide" if column == "pos_error" else "Divisional"
+            ax.set(title=f"{name}: {scope} position error",
+                   xlabel="Absolute position error", ylabel="Count")
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "error_distributions.png", dpi=150)
+    plt.close(fig)
+
+def _plot_predictions(plt, results_by_model: dict) -> None:
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), squeeze=False)
+    for ax, name in zip(axes[0], ERROR_MODELS):
+        if not results_by_model.get(name):
+            continue
+        comparison = _concat(results_by_model, name, "comparison")
+        ax.scatter(comparison["Pts"], comparison["predicted_pts"], alpha=0.5, s=25)
+        low = min(comparison["Pts"].min(), comparison["predicted_pts"].min())
+        high = max(comparison["Pts"].max(), comparison["predicted_pts"].max())
+        ax.plot([low, high], [low, high], "k--", linewidth=1)
+        ax.set(title=name, xlabel="Actual points", ylabel="Predicted points")
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "predicted_vs_actual.png", dpi=150)
+    plt.close(fig)
+
+def generate_graphs(results_by_model: dict) -> None:
+    """Write the curated evaluation figures once, from completed results."""
+    import matplotlib
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import seaborn as sns
 
     sns.set(style="whitegrid")
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # League-wide position error distribution
-    counts = comparison["pos_error"].value_counts().sort_index()
-    axes[0].bar(counts.index, counts.values, width=1.0, edgecolor="black")
-    axes[0].set_xticks(range(0, int(counts.index.max()) + 1))
-    axes[0].set_title("League-wide Position Error Distribution")
-    axes[0].set_xlabel("Absolute Position Error")
-    axes[0].set_ylabel("Count")
-    for p in axes[0].patches:
-        axes[0].annotate(str(p.get_height()), (p.get_x() + p.get_width() / 2, p.get_height() * 1.005), ha="center", va="bottom")
-
-    # Divisional position error distribution
-    div_counts = div["div_pos_error"].value_counts().sort_index()
-    axes[1].bar(div_counts.index, div_counts.values, width=1.0, edgecolor="black")
-    axes[1].set_xticks(range(0, int(div_counts.index.max()) + 1))
-    axes[1].set_title("Divisional Position Error Distribution")
-    axes[1].set_xlabel("Absolute Divisional Position Error")
-    axes[1].set_ylabel("Count")
-    for p in axes[1].patches:
-        axes[1].annotate(str(p.get_height()), (p.get_x() + p.get_width() / 2, p.get_height() * 1.005), ha="center", va="bottom")
-
-    plt.tight_layout()
-    if year is not None:
-        #plt.savefig(OUTPUT_DIR / f"ped_overall_{name}_{year}.png")
-        pass
-    else:
-        plt.savefig(OUTPUT_DIR / f"ped_overall_{name}.png")
-    plt.close(fig)
+    labels = [n for n in HEADLINE_MODELS if results_by_model.get(n)]
+    if not labels:
+        return
+    metrics = _metric_frame(results_by_model, labels)
+    _plot_model_comparison(plt, metrics, labels)
+    _plot_per_year(plt, metrics)
+    _plot_error_distributions(plt, results_by_model)
+    _plot_predictions(plt, results_by_model)
