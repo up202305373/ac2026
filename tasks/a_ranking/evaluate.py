@@ -2,6 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 from scipy.stats import spearmanr
 import logging
+import numpy as np
 import pandas as pd
 log = logging.getLogger("a_ranking")
 
@@ -36,7 +37,9 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str,
     if comparison.empty:
         raise ValueError("No teams with both predicted and actual points")
 
-    # League-wide positions
+    # League-wide positions are only used for the Spearman correlation and the
+    # position-error plot. There is no league rank in the data, so divisional
+    # rank below is the actual target.
     comparison["predicted_pos"] = (
         comparison.groupby("year")["predicted_pts"]
         .rank(method="first", ascending=False)
@@ -47,43 +50,47 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str,
         .rank(method="first", ascending=False)
         .astype(int)
     )
-    league_correct = int((comparison["predicted_pos"] == comparison["actual_pos"]).sum())
-    log.info(f"{indent}League positions: {league_correct}/{len(comparison)} correct")
-
-    spearman = comparison.groupby("year").apply(lambda s: spearmanr(s["predicted_pos"], s["actual_pos"]).statistic).mean()
     comparison["pos_error"] = (comparison["predicted_pos"] - comparison["actual_pos"]).abs()
-    mean_pos_error = comparison["pos_error"].mean()
+    spearman = comparison.groupby("year").apply(
+        lambda s: spearmanr(s["predicted_pos"], s["actual_pos"]).statistic).mean()
 
-    log.info(f"{indent}League spearman correlation: {spearman:.3f}")
-    log.info(f"{indent}League mean absolute position error: {mean_pos_error:.2f} spots")
+    points_error = comparison["predicted_pts"] - comparison["Pts"]
+    points_mae = points_error.abs().mean()
+    points_rmse = np.sqrt((points_error ** 2).mean())
 
-    # Divisional positions
+    # Divisional positions, including the first place in each division.
     div = comparison[comparison["divID"].notna()].copy()
     div["predicted_div_pos"] = (
         div.groupby(["year", "divID"])["predicted_pts"]
         .rank(method="first", ascending=False)
         .astype(int)
     )
-    div_correct = int((div["predicted_div_pos"] == div["rank"].astype(int)).sum())
-    log.info(f"{indent}Divisional positions: {div_correct}/{len(div)} correct")
-
     div["div_pos_error"] = (div["predicted_div_pos"] - div["rank"]).abs()
     div_mean_pos_error = div["div_pos_error"].mean()
 
+    div_correct = int((div["predicted_div_pos"] == div["rank"].astype(int)).sum())
+    winners = div[div["rank"] == 1]
+    div_winners_correct = int((winners["predicted_div_pos"] == 1).sum())
+
+    log.info(f"{indent}Divisional positions: {div_correct}/{len(div)} correct")
+    log.info(f"{indent}Division winners: {div_winners_correct}/{len(winners)} correct")
     log.info(f"{indent}Mean absolute divisional position error: {div_mean_pos_error:.2f} spots")
+    log.info(f"{indent}League spearman correlation: {spearman:.3f}")
+    log.info(f"{indent}Points MAE: {points_mae:.2f} (RMSE {points_rmse:.2f})")
 
     generate_graphs(comparison, div, name, year)
 
     return {
-        "league_correct": league_correct,
-        "league_total": len(comparison),
         "spearman": spearman,
-        "mean_pos_error": mean_pos_error,
+        "points_mae": points_mae,
+        "points_rmse": points_rmse,
         "div_mean_pos_error": div_mean_pos_error,
-        "comparison": comparison,
-        "div": div,
         "div_correct": div_correct,
         "div_total": len(div),
+        "div_winners_correct": div_winners_correct,
+        "div_winners_total": len(winners),
+        "comparison": comparison,
+        "div": div,
     }
 
 def generate_graphs(comparison, div, name, year=None) -> None:

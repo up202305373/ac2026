@@ -49,16 +49,16 @@ def load_actual_teams(year: int) -> pd.DataFrame:
 def log_summary(log, header: str, graph_name: str, results: list) -> None:
     summary = pd.DataFrame(results)
     log.info(f"\n ===== Overall: {header} =====")
-    log.info("  Mean spearman: {:.3f} (sd {:.3f})".format(
-        summary["spearman"].mean(), summary["spearman"].std()))
-    log.info("  Mean league position error: {:.2f} spots (sd {:.2f})".format(
-        summary["mean_pos_error"].mean(), summary["mean_pos_error"].std()))
     log.info("  Mean divisional position error: {:.2f} spots (sd {:.2f})".format(
         summary["div_mean_pos_error"].mean(), summary["div_mean_pos_error"].std()))
-    log.info("  League positions correct: {}/{}".format(
-        summary["league_correct"].sum(), summary["league_total"].sum()))
     log.info("  Divisional positions correct: {}/{}".format(
         summary["div_correct"].sum(), summary["div_total"].sum()))
+    log.info("  Division winners correct: {}/{}".format(
+        summary["div_winners_correct"].sum(), summary["div_winners_total"].sum()))
+    log.info("  Mean spearman: {:.3f} (sd {:.3f})".format(
+        summary["spearman"].mean(), summary["spearman"].std()))
+    log.info("  Mean points MAE: {:.2f} (RMSE {:.2f})".format(
+        summary["points_mae"].mean(), summary["points_rmse"].mean()))
 
     comparison = pd.concat([r["comparison"] for r in results], ignore_index=True)
     div = pd.concat([r["div"] for r in results], ignore_index=True)
@@ -87,6 +87,9 @@ def main() -> None:
                 log.info(f"\n  ===== Model: {header} =====")
                 kwargs = {**extra, **({"alpha": alpha} if alpha is not None else {})}
                 predictions = train_and_predict(train_data, test_data, **kwargs)
+                if "selected_alpha" in predictions.attrs:
+                    log.info("   Selected alpha (validation): {}".format(
+                        predictions.attrs["selected_alpha"]))
                 log.info("   Predictions:")
                 log.info(indent(predictions.to_string(index=False), 4))
                 log.info("\n   Test metrics:")

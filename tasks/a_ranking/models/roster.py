@@ -14,10 +14,14 @@ MIN_SKATER_GP = 20
 MIN_GOALIE_GP = 10
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
+# Used when alpha is not fixed: selected on a held-out training season.
+VALIDATION_ALPHAS = (0.1, 0.3, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0)
+
 FEATURE_GROUPS = {
-    "base":    ["team_gd", "fwd_ppg", "goalie_svpct", "new_share"],
-    "shots":   ["shot_diff", "shoot_pct", "team_sv_pct"],
-    "special": ["pp_pct", "pk_pct"],
+    "base":      ["team_gd", "fwd_ppg", "goalie_svpct", "new_share"],
+    "shots":     ["shot_diff", "shoot_pct", "team_sv_pct"],
+    "special":   ["pp_pct", "pk_pct"],
+    "prior_pts": ["prior_pts"],
 }
 
 def features_for(groups):
@@ -124,6 +128,7 @@ def build_rows(teams, roster_scoring, roster_goalies, prior_scoring, prior_goali
     ) | set(prior_goalies_all.loc[prior_goalies_all["year"] == prev, "playerID"])
     pt = prior_teams[prior_teams["year"] == prev]
     team_gd = ((pt["GF"] - pt["GA"]) / pt["G"]).groupby(pt["franchID"].values).mean()
+    prior_pts = pt.groupby("franchID")["Pts"].mean()
     league = {"ppg": prior_sk["ppg"].mean(), "svpct": prior_g["svpct"].mean()}
     shot_feats = prior_shot_features(prior_scoring, prior_goalies_all, prior_teams, prev)
     special_feats = prior_special_features(prior_teams, prev)
@@ -139,6 +144,7 @@ def build_rows(teams, roster_scoring, roster_goalies, prior_scoring, prior_goali
             prior_sk, prior_g, league, prior_player_ids,
         )
         feats["team_gd"] = team_gd.get(franchID, team_gd.mean())
+        feats["prior_pts"] = prior_pts.get(franchID, prior_pts.mean())
         for column, lookup in (("shot_diff", shot_feats), ("shoot_pct", shot_feats),
                                ("team_sv_pct", shot_feats), ("pp_pct", special_feats),
                                ("pk_pct", special_feats)):
@@ -185,14 +191,14 @@ def build_features(teams, roster_scoring, roster_goalies, prior_scoring, prior_g
 def load_players(split: str) -> dict:
     return {t: pd.read_csv(DATA_DIR / split / f"{t}.csv") for t in ("Scoring", "Goalies")}
 
-def train_and_predict(train_data, test_data, train_players=None, test_players=None, alpha=30.0, features=None, previous_years=1) -> pd.DataFrame:
-    """Trains a ridge model on prior seasons and predicts the test-year rankings."""
-    cols = features_for(features) if features is not None else FEATURES
-    train_players = train_players or load_players("train")
-    test_players = test_players or load_players("test")
-    train_years = set(train_data["year"].unique())
+def make_model(alpha):
+    return make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), Ridge(alpha))
+
+
+def training_rows(train_data, train_players, cols, previous_years) -> pd.DataFrame:
+    """One row per team-season, built only from that season's prior context."""
     frames = []
-    for year in sorted(train_years):
+    for year in sorted(train_data["year"].unique()):
         earlier = train_data[train_data["year"] < year]
         if earlier.empty:
             continue
@@ -204,9 +210,63 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
         )
         target = train_data.loc[train_data["year"] == year, ["franchID", "Pts"]]
         frames.append(feats.merge(target, on="franchID"))
-    train_rows = pd.concat(frames).dropna(subset=cols + ["Pts"])
+    return pd.concat(frames).dropna(subset=cols + ["Pts"])
 
-    model = make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), Ridge(alpha))
+
+def select_alpha(train_data, train_players, cols, previous_years, alphas=VALIDATION_ALPHAS):
+    """Pick alpha on the latest training season, before fitting on all seasons.
+
+    The held-out season is the last one available before the target year, so
+    this stays a rolling-origin validation and never touches test-year labels.
+    """
+    seasons = sorted(train_data["year"].unique())
+    if len(seasons) < 2:
+        return alphas[len(alphas) // 2]
+
+    val_year = seasons[-1]
+    val_train = train_data[train_data["year"] < val_year]
+    rows = training_rows(val_train, train_players, cols, previous_years)
+    val_feats = build_features(
+        train_data, train_players["Scoring"], train_players["Goalies"],
+        train_players["Scoring"][train_players["Scoring"]["year"] < val_year],
+        train_players["Goalies"][train_players["Goalies"]["year"] < val_year],
+        val_year, val_train, previous_years,
+    ).dropna(subset=cols)
+    actual = train_data.loc[train_data["year"] == val_year, ["franchID", "Pts"]]
+    val = val_feats.merge(actual, on="franchID").dropna(subset=cols + ["Pts"])
+
+    if rows.empty or val.empty:
+        return alphas[len(alphas) // 2]
+
+    scores = []
+    for alpha in alphas:
+        model = make_model(alpha)
+        model.fit(rows[cols], rows["Pts"].astype(float))
+        error = model.predict(val[cols]) - val["Pts"].astype(float)
+        scores.append((float(error.abs().mean()), alpha))
+    return min(scores)[1]
+
+
+def train_and_predict(train_data, test_data, train_players=None, test_players=None,
+                      alpha=None, features=None, previous_years=1,
+                      validation_alphas=VALIDATION_ALPHAS) -> pd.DataFrame:
+    """Trains a ridge model on prior seasons and predicts the test-year rankings.
+
+    alpha=None selects the value on a held-out training season; the chosen
+    value is exposed in the returned frame's attrs for logging.
+    """
+    cols = features_for(features) if features is not None else FEATURES
+    train_players = train_players or load_players("train")
+    test_players = test_players or load_players("test")
+
+    selected_alpha = None
+    if alpha is None:
+        alpha = select_alpha(train_data, train_players, cols, previous_years,
+                             validation_alphas)
+        selected_alpha = alpha
+
+    train_rows = training_rows(train_data, train_players, cols, previous_years)
+    model = make_model(alpha)
     model.fit(train_rows[cols], train_rows["Pts"].astype(float))
 
     test_year = int(test_data["year"].iloc[0])
@@ -214,8 +274,11 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
         test_data, test_players["Scoring"], test_players["Goalies"],
         train_players["Scoring"], train_players["Goalies"], test_year, train_data, previous_years,
     ).dropna(subset=cols)
-    return pd.DataFrame({
+    predictions = pd.DataFrame({
         "year": test_feats["year"].values,
         "franchID": test_feats["franchID"].values,
         "predicted_pts": model.predict(test_feats[cols]),
     })
+    if selected_alpha is not None:
+        predictions.attrs["selected_alpha"] = selected_alpha
+    return predictions
