@@ -63,10 +63,11 @@ Everything that gets tested lives in `tasks/a_ranking/config.py`:
   - `min_skater_gp` / `min_goalie_gp` – minimum prior-season games for a skater / goalie to count (defaults 20 / 10; `40` / `20` are swept).
   - `train_from` – first training season passed to the sampler (default 1995; `1980`, `1985`, `1990`, `2000` are swept). Years with fewer than two usable training seasons are skipped for that experiment.
   - `use_age` – enable the `age` feature group from `Master` (only meaningful with the `roster_*_age` models).
+  - `estimator` – `"ridge"` (default), `"elasticnet"` or `"ols"`. ElasticNet reuses the alpha validation grid and adds `l1_ratio` (default `0.5`); OLS is unregularized, so it uses a fixed `alpha: 0` and skips validation. Both reuse the existing `roster_base` / `roster_all` feature sets.
 
 Add new experiments by appending another dict; no other file needs to change unless it introduces a genuinely new model or feature group.
 
 ## Outputs
 
 - `tasks/a_ranking/logs/output.log` – per-year predictions and metrics, plus an aggregate summary for each experiment with sd for every metric and a compact per-year table. Log entries use foldable indentation so each run and model block can be collapsed in an editor.
-- `tasks/a_ranking/plots/` – four curated figures written once by `evaluate.generate_graphs()` at the end of a run: `model_comparison.png` (headline models × key metrics, mean ± sd), `per_year_trends.png`, `error_distributions.png` (league-wide and divisional, `roster_base` vs `roster_all`) and `predicted_vs_actual.png`. Only these four are tracked; other files in the directory are gitignored.
+- `tasks/a_ranking/plots/` – five curated figures written once by `evaluate.generate_graphs()` at the end of a run: `model_comparison.png` (headline models × key metrics, mean ± sd), `per_year_trends.png`, `error_distributions.png` (league-wide and divisional, `roster_base` vs `roster_all`), `predicted_vs_actual.png` and `estimator_comparison.png` (Ridge vs ElasticNet vs OLS for both feature sets).

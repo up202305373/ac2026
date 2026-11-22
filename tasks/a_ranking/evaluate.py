@@ -92,6 +92,16 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str,
 HEADLINE_MODELS = ("baseline", "roster_base", "roster_all",
                    "roster_base_age", "roster_all_age")
 ERROR_MODELS = ("roster_base", "roster_all")
+ESTIMATOR_MODELS = ("roster_base", "roster_base_elasticnet", "roster_base_ols",
+                    "roster_all", "roster_all_elasticnet", "roster_all_ols")
+
+
+def _estimator_label(name: str) -> str:
+    if name.endswith("_elasticnet"):
+        return "ElasticNet"
+    if name.endswith("_ols"):
+        return "OLS"
+    return "Ridge"
 
 def _metric_frame(results_by_model: dict, names: list) -> pd.DataFrame:
     """Flatten per-year result dicts into a tidy metrics table."""
@@ -192,6 +202,36 @@ def _plot_predictions(plt, results_by_model: dict) -> None:
     fig.savefig(OUTPUT_DIR / "predicted_vs_actual.png", dpi=150)
     plt.close(fig)
 
+def _plot_estimator_comparison(plt, metrics: pd.DataFrame, labels: list) -> None:
+    panels = (
+        ("div_correct", "Divisional positions correct / season"),
+        ("div_winners_correct", "Division winners correct / season"),
+        ("div_mae", "Divisional position error (spots)"),
+        ("points_mae", "Points MAE"),
+    )
+    fig, axes = plt.subplots(2, 4, figsize=(17, 8))
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    for row, prefix in enumerate(("roster_base", "roster_all")):
+        names = [n for n in labels if n == prefix or n.startswith(prefix + "_")]
+        short = [_estimator_label(n) for n in names]
+        for col, (column, title) in enumerate(panels):
+            ax = axes[row, col]
+            grouped = metrics[metrics["model"].isin(names)].groupby("model")[column]
+            means = grouped.mean().reindex(names)
+            sds = grouped.std().reindex(names).fillna(0)
+            x = np.arange(len(names))
+            ax.bar(x, means, yerr=sds, capsize=3, color=colors[:len(names)])
+            ax.set_xticks(x)
+            ax.set_xticklabels(short)
+            ax.set(title=f"{'base' if row == 0 else 'all'}: {title}", ylim=(0, None))
+    fig.suptitle(
+        "Estimator comparison: Ridge vs ElasticNet vs OLS (mean ± sd over test seasons)",
+        y=1.02)
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "estimator_comparison.png", dpi=150)
+    plt.close(fig)
+
+
 def generate_graphs(results_by_model: dict) -> None:
     """Write the curated evaluation figures once, from completed results."""
     import matplotlib
@@ -210,3 +250,8 @@ def generate_graphs(results_by_model: dict) -> None:
     _plot_per_year(plt, metrics)
     _plot_error_distributions(plt, results_by_model)
     _plot_predictions(plt, results_by_model)
+
+    est_labels = [n for n in ESTIMATOR_MODELS if results_by_model.get(n)]
+    if est_labels:
+        _plot_estimator_comparison(
+            plt, _metric_frame(results_by_model, est_labels), est_labels)

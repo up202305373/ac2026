@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import ElasticNet, LinearRegression, Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -222,8 +222,17 @@ def load_players(split: str) -> dict:
     return {t: pd.read_csv(DATA_DIR / split / f"{t}.csv")
             for t in ("Scoring", "Goalies", "Master")}
 
-def make_model(alpha):
-    return make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), Ridge(alpha))
+def make_model(alpha, knobs=None):
+    knobs = knobs or {}
+    estimator = knobs.get("estimator", "ridge")
+    if estimator == "ols":
+        model = LinearRegression()
+    elif estimator == "elasticnet":
+        model = ElasticNet(alpha=alpha, l1_ratio=knobs.get("l1_ratio", 0.5),
+                           max_iter=10000, random_state=0)
+    else:
+        model = Ridge(alpha)
+    return make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), model)
 
 
 def training_rows(train_data, train_players, cols, previous_years, knobs=None) -> pd.DataFrame:
@@ -273,7 +282,7 @@ def select_alpha(train_data, train_players, cols, previous_years, alphas=VALIDAT
 
     scores = []
     for alpha in alphas:
-        model = make_model(alpha)
+        model = make_model(alpha, knobs)
         model.fit(rows[cols], rows["Pts"].astype(float))
         error = model.predict(val[cols]) - val["Pts"].astype(float)
         scores.append((float(error.abs().mean()), alpha))
@@ -284,7 +293,8 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
                       alpha=None, features=None, previous_years=1,
                       validation_alphas=VALIDATION_ALPHAS,
                       n_forwards=N_FORWARDS, min_skater_gp=MIN_SKATER_GP,
-                      min_goalie_gp=MIN_GOALIE_GP, use_age=False) -> pd.DataFrame:
+                      min_goalie_gp=MIN_GOALIE_GP, use_age=False,
+                      estimator="ridge", l1_ratio=0.5) -> pd.DataFrame:
     """Trains a ridge model on prior seasons and predicts the test-year rankings.
 
     alpha=None selects the value on a held-out training season; the chosen
@@ -298,6 +308,8 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
         "min_skater_gp": min_skater_gp,
         "min_goalie_gp": min_goalie_gp,
         "use_age": use_age,
+        "estimator": estimator,
+        "l1_ratio": l1_ratio,
     }
     if use_age:
         master = test_players.get("Master", train_players.get("Master"))
@@ -310,7 +322,7 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
         selected_alpha = alpha
 
     train_rows = training_rows(train_data, train_players, cols, previous_years, knobs)
-    model = make_model(alpha)
+    model = make_model(alpha, knobs)
     model.fit(train_rows[cols], train_rows["Pts"].astype(float))
 
     test_year = int(test_data["year"].iloc[0])

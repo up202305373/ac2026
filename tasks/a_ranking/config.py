@@ -45,4 +45,10 @@ EXPERIMENTS = [
     # Roster age from Master (mean, spread, share aged 30+).
     {"name": "roster_base_age", "model": "roster_base_age", "validation_alphas": ALPHAS, "previous_years": 1, "use_age": True},
     {"name": "roster_all_age",  "model": "roster_all_age",  "validation_alphas": ALPHAS, "previous_years": 1, "use_age": True},
+
+    # Alternative estimators in the same pipeline (Ridge is the default).
+    {"name": "roster_base_elasticnet", "model": "roster_base", "validation_alphas": ALPHAS, "previous_years": 1, "estimator": "elasticnet", "l1_ratio": 0.5},
+    {"name": "roster_all_elasticnet",  "model": "roster_all",  "validation_alphas": ALPHAS, "previous_years": 1, "estimator": "elasticnet", "l1_ratio": 0.5},
+    {"name": "roster_base_ols", "model": "roster_base", "previous_years": 1, "estimator": "ols", "alpha": 0},
+    {"name": "roster_all_ols",  "model": "roster_all",  "previous_years": 1, "estimator": "ols", "alpha": 0},
 ]
