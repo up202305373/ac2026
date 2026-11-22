@@ -13,7 +13,7 @@ Each run loops over `TEST_YEARS`, re-samples `data/train` and `data/test` throug
 
 2004 is absent from the data entirely: that season was cancelled by the lockout, so there are no standings to predict.
 
-2005 does have standings, but is not in `TEST_YEARS` yet. Because 2004 is missing, its prior-season features come from 2003 — two seasons back — instead of the immediately preceding season like every other test year. That makes it a possible outlier, so it is held out as an end-stage robustness check: compare the multi-year averages with and without 2005 before deciding whether to include it in the headline results.
+2005 has standings but is excluded from `TEST_YEARS`: with 2004 missing, its prior-season features come from 2003, two seasons back, unlike every other fold. We predicted it would be an outlier so it was evaluated separately as a robustness check. Divisional accuracy was in line with or above the 8-year averages, but points MAE rose by roughly two points (11.64 vs 9.40) for `roster_all` and by a similar amount for the other models. Adding 2005 raises its nine-year points MAE to 9.65 and barely changes the divisional rate (101/270 vs 88/240). It is therefore kept out of the headline results.
 
 ## Metrics
 
@@ -50,7 +50,7 @@ The `roster_*` models are `roster.train_and_predict` with different feature grou
 
 Roster features are built from the target season's known-before-the-season roster plus the most recent prior season(s), then standardised and fitted with `Ridge`. When `alpha` is not fixed, it is selected on a held-out training season (the latest one available before the target year) by points MAE, and the model is then refit on all training seasons. The chosen value is logged. This keeps validation strictly before the test year.
 
-## Config knobs
+## Configuration options
 
 Everything that gets tested lives in `tasks/a_ranking/config.py`:
 

@@ -17,7 +17,7 @@ DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 # Used when alpha is not fixed: selected on a held-out training season.
 VALIDATION_ALPHAS = (0.1, 0.3, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0)
 
-DEFAULT_KNOBS = {
+DEFAULT_OPTIONS = {
     "n_forwards": N_FORWARDS,
     "min_skater_gp": MIN_SKATER_GP,
     "min_goalie_gp": MIN_GOALIE_GP,
@@ -48,23 +48,23 @@ def pos_group(pos) -> str:
         return first
     return "F"
 
-def prior_skaters(scoring: pd.DataFrame, year: int, knobs=None) -> pd.DataFrame:
+def prior_skaters(scoring: pd.DataFrame, year: int, options=None) -> pd.DataFrame:
     """Calculates each qualifying forward's points per game for one season."""
-    knobs = knobs or DEFAULT_KNOBS
+    options = options or DEFAULT_OPTIONS
     s = scoring[scoring["year"] == year].copy()
     s["group"] = s["pos"].map(pos_group)
     s = s[s["group"] == "F"]
     tot = s.groupby("playerID").agg(GP=("GP", "sum"), Pts=("Pts", "sum"), group=("group", "first"))
-    tot = tot[tot["GP"] >= knobs["min_skater_gp"]].copy()
+    tot = tot[tot["GP"] >= options["min_skater_gp"]].copy()
     tot["ppg"] = tot["Pts"] / tot["GP"]
     return tot[["ppg", "group"]]
 
-def prior_goalies(goalies: pd.DataFrame, year: int, knobs=None) -> pd.DataFrame:
+def prior_goalies(goalies: pd.DataFrame, year: int, options=None) -> pd.DataFrame:
     """Calculates each qualifying goalie's save percentage for one season."""
-    knobs = knobs or DEFAULT_KNOBS
+    options = options or DEFAULT_OPTIONS
     g = goalies[goalies["year"] == year]
     tot = g.groupby("playerID").agg(prior_GP=("GP", "sum"), GA=("GA", "sum"), SA=("SA", "sum"))
-    tot = tot[(tot["prior_GP"] >= knobs["min_goalie_gp"]) & (tot["SA"] > 0)].copy()
+    tot = tot[(tot["prior_GP"] >= options["min_goalie_gp"]) & (tot["SA"] > 0)].copy()
     tot["svpct"] = 1 - tot["GA"] / tot["SA"]
     return tot[["svpct", "prior_GP"]]
 
@@ -96,16 +96,16 @@ def prior_special_features(teams, year: int) -> pd.DataFrame:
     return rates.groupby("franchID")[["pp_pct", "pk_pct"]].mean()
 
 def team_features(skaters, goalies, prior_sk, prior_g, league, prior_player_ids=None,
-                  knobs=None, year=None) -> dict:
+                  options=None, year=None) -> dict:
     """Builds 3 team features from current-roster players and prior-season data."""
-    knobs = knobs or DEFAULT_KNOBS
+    options = options or DEFAULT_OPTIONS
     sk = skaters.copy()
     sk["group"] = sk["pos"].map(pos_group)
     sk = sk.merge(prior_sk[["ppg"]], left_on="playerID", right_index=True, how="left")
     sk["ppg"] = sk["ppg"].fillna(league["ppg"])
 
     forward_ppg = sk.loc[sk["group"] == "F", "ppg"]
-    n = knobs["n_forwards"]
+    n = options["n_forwards"]
     fwd = (forward_ppg.mean() if n == "all" else forward_ppg.nlargest(int(n)).mean())
     gk = goalies.merge(prior_g, left_on="playerID", right_index=True, how="left")
     known = gk.dropna(subset=["prior_GP"])
@@ -125,8 +125,8 @@ def team_features(skaters, goalies, prior_sk, prior_g, league, prior_player_ids=
         "goalie_svpct": svpct,
         "new_share": (~roster["playerID"].isin(prior_player_ids)).mean() if len(roster) else np.nan,
     }
-    if knobs.get("use_age"):
-        age_map = knobs.get("age_map", {})
+    if options.get("use_age"):
+        age_map = options.get("age_map", {})
         ages = [year - age_map[pid] for pid in roster["playerID"]
                 if pid in age_map and pd.notna(age_map[pid])]
         if ages:
@@ -146,12 +146,12 @@ def previous_season(years, year):
     return max(earlier) if earlier else None
 
 def build_rows(teams, roster_scoring, roster_goalies, prior_scoring, prior_goalies_all, year,
-               prior_teams, knobs=None) -> pd.DataFrame:
+               prior_teams, options=None) -> pd.DataFrame:
     """Builds one feature row per team using its roster and prior-season context."""
-    knobs = knobs or DEFAULT_KNOBS
+    options = options or DEFAULT_OPTIONS
     prev = previous_season(prior_scoring["year"], year)
-    prior_sk = prior_skaters(prior_scoring, prev, knobs)
-    prior_g = prior_goalies(prior_goalies_all, prev, knobs)
+    prior_sk = prior_skaters(prior_scoring, prev, options)
+    prior_g = prior_goalies(prior_goalies_all, prev, options)
     prior_player_ids = set(
         prior_scoring.loc[prior_scoring["year"] == prev, "playerID"]
     ) | set(prior_goalies_all.loc[prior_goalies_all["year"] == prev, "playerID"])
@@ -170,7 +170,7 @@ def build_rows(teams, roster_scoring, roster_goalies, prior_scoring, prior_goali
         feats = team_features(
             roster_sk[roster_sk["tmID"] == tmID],
             roster_g[roster_g["tmID"] == tmID],
-            prior_sk, prior_g, league, prior_player_ids, knobs, year,
+            prior_sk, prior_g, league, prior_player_ids, options, year,
         )
         feats["team_gd"] = team_gd.get(franchID, team_gd.mean())
         feats["prior_pts"] = prior_pts.get(franchID, prior_pts.mean())
@@ -181,7 +181,7 @@ def build_rows(teams, roster_scoring, roster_goalies, prior_scoring, prior_goali
         rows.append({"year": year, "franchID": franchID, **feats})
     return pd.DataFrame(rows)
 
-def build_features(teams, roster_scoring, roster_goalies, prior_scoring, prior_goalies_all, target_year, prior_teams, previous_years=1, knobs=None) -> pd.DataFrame:
+def build_features(teams, roster_scoring, roster_goalies, prior_scoring, prior_goalies_all, target_year, prior_teams, previous_years=1, options=None) -> pd.DataFrame:
     """Build target-year features from the last N available prior seasons.
 
     Each prior season produces one full feature table via build_rows(); the
@@ -204,7 +204,7 @@ def build_features(teams, roster_scoring, roster_goalies, prior_scoring, prior_g
             prior_goalies_all[prior_goalies_all["year"] <= season],
             target_year,
             prior_teams[prior_teams["year"] <= season],
-            knobs,
+            options,
         ))
 
     if len(frames) == 1:
@@ -222,20 +222,20 @@ def load_players(split: str) -> dict:
     return {t: pd.read_csv(DATA_DIR / split / f"{t}.csv")
             for t in ("Scoring", "Goalies", "Master")}
 
-def make_model(alpha, knobs=None):
-    knobs = knobs or {}
-    estimator = knobs.get("estimator", "ridge")
+def make_model(alpha, options=None):
+    options = options or {}
+    estimator = options.get("estimator", "ridge")
     if estimator == "ols":
         model = LinearRegression()
     elif estimator == "elasticnet":
-        model = ElasticNet(alpha=alpha, l1_ratio=knobs.get("l1_ratio", 0.5),
+        model = ElasticNet(alpha=alpha, l1_ratio=options.get("l1_ratio", 0.5),
                            max_iter=10000, random_state=0)
     else:
         model = Ridge(alpha)
     return make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), model)
 
 
-def training_rows(train_data, train_players, cols, previous_years, knobs=None) -> pd.DataFrame:
+def training_rows(train_data, train_players, cols, previous_years, options=None) -> pd.DataFrame:
     """One row per team-season, built only from that season's prior context."""
     frames = []
     for year in sorted(train_data["year"].unique()):
@@ -246,7 +246,7 @@ def training_rows(train_data, train_players, cols, previous_years, knobs=None) -
             train_data, train_players["Scoring"], train_players["Goalies"],
             train_players["Scoring"][train_players["Scoring"]["year"] < year],
             train_players["Goalies"][train_players["Goalies"]["year"] < year],
-            year, earlier, previous_years, knobs,
+            year, earlier, previous_years, options,
         )
         target = train_data.loc[train_data["year"] == year, ["franchID", "Pts"]]
         frames.append(feats.merge(target, on="franchID"))
@@ -255,7 +255,7 @@ def training_rows(train_data, train_players, cols, previous_years, knobs=None) -
     return pd.concat(frames).dropna(subset=cols + ["Pts"])
 
 
-def select_alpha(train_data, train_players, cols, previous_years, alphas=VALIDATION_ALPHAS, knobs=None):
+def select_alpha(train_data, train_players, cols, previous_years, alphas=VALIDATION_ALPHAS, options=None):
     """Pick alpha on the latest training season, before fitting on all seasons.
 
     The held-out season is the last one available before the target year, so
@@ -267,12 +267,12 @@ def select_alpha(train_data, train_players, cols, previous_years, alphas=VALIDAT
 
     val_year = seasons[-1]
     val_train = train_data[train_data["year"] < val_year]
-    rows = training_rows(val_train, train_players, cols, previous_years, knobs)
+    rows = training_rows(val_train, train_players, cols, previous_years, options)
     val_feats = build_features(
         train_data, train_players["Scoring"], train_players["Goalies"],
         train_players["Scoring"][train_players["Scoring"]["year"] < val_year],
         train_players["Goalies"][train_players["Goalies"]["year"] < val_year],
-        val_year, val_train, previous_years, knobs,
+        val_year, val_train, previous_years, options,
     ).dropna(subset=cols)
     actual = train_data.loc[train_data["year"] == val_year, ["franchID", "Pts"]]
     val = val_feats.merge(actual, on="franchID").dropna(subset=cols + ["Pts"])
@@ -282,7 +282,7 @@ def select_alpha(train_data, train_players, cols, previous_years, alphas=VALIDAT
 
     scores = []
     for alpha in alphas:
-        model = make_model(alpha, knobs)
+        model = make_model(alpha, options)
         model.fit(rows[cols], rows["Pts"].astype(float))
         error = model.predict(val[cols]) - val["Pts"].astype(float)
         scores.append((float(error.abs().mean()), alpha))
@@ -303,7 +303,7 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
     cols = features_for(features) if features is not None else FEATURES
     train_players = train_players or load_players("train")
     test_players = test_players or load_players("test")
-    knobs = {
+    options = {
         "n_forwards": n_forwards,
         "min_skater_gp": min_skater_gp,
         "min_goalie_gp": min_goalie_gp,
@@ -313,22 +313,22 @@ def train_and_predict(train_data, test_data, train_players=None, test_players=No
     }
     if use_age:
         master = test_players.get("Master", train_players.get("Master"))
-        knobs["age_map"] = dict(zip(master["playerID"], master["birthYear"]))
+        options["age_map"] = dict(zip(master["playerID"], master["birthYear"]))
 
     selected_alpha = None
     if alpha is None:
         alpha = select_alpha(train_data, train_players, cols, previous_years,
-                             validation_alphas, knobs)
+                             validation_alphas, options)
         selected_alpha = alpha
 
-    train_rows = training_rows(train_data, train_players, cols, previous_years, knobs)
-    model = make_model(alpha, knobs)
+    train_rows = training_rows(train_data, train_players, cols, previous_years, options)
+    model = make_model(alpha, options)
     model.fit(train_rows[cols], train_rows["Pts"].astype(float))
 
     test_year = int(test_data["year"].iloc[0])
     test_feats = build_features(
         test_data, test_players["Scoring"], test_players["Goalies"],
-        train_players["Scoring"], train_players["Goalies"], test_year, train_data, previous_years, knobs,
+        train_players["Scoring"], train_players["Goalies"], test_year, train_data, previous_years, options,
     ).dropna(subset=cols)
     predictions = pd.DataFrame({
         "year": test_feats["year"].values,
