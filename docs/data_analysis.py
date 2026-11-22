@@ -1,3 +1,9 @@
+"""Generate the EDA figures in docs/figures/ from database/hockey.db.
+
+Paths are resolved relative to this file's repository root, so the script can be
+run from any directory with ``python docs/data_analysis.py``.
+"""
+
 import sqlite3
 from pathlib import Path
 
