@@ -64,8 +64,22 @@ def log_summary(log, header: str, results: list) -> None:
     log.info("  Division winners correct: {}/{} (mean {:.1f}/year, sd {})".format(
         summary["div_winners_correct"].sum(), summary["div_winners_total"].sum(),
         summary["div_winners_correct"].mean(), sd_text(summary["div_winners_correct"], 1)))
-    log.info("  Mean spearman: {:.3f} (sd {})".format(
-        summary["spearman"].mean(), sd_text(summary["spearman"], 3)))
+    log.info("  Mean divisional spearman: {:.3f} (sd {})".format(
+        summary["div_spearman"].mean(), sd_text(summary["div_spearman"], 3)))
+    log.info("  League point-order positions correct: {}/{} (mean {:.1f}/year, sd {})".format(
+        summary["league_correct"].sum(), summary["league_total"].sum(),
+        summary["league_correct"].mean(), sd_text(summary["league_correct"], 1)))
+    log.info("  Mean league point-order position error: {:.2f} spots (sd {})".format(
+        summary["league_mae"].mean(), sd_text(summary["league_mae"])))
+    log.info("  Mean league point-order spearman: {:.3f} (sd {})".format(
+        summary["league_pts_spearman"].mean(), sd_text(summary["league_pts_spearman"], 3)))
+    log.info("  League seed-style positions correct: {}/{} (mean {:.1f}/year, sd {})".format(
+        summary["seed_correct"].sum(), summary["seed_total"].sum(),
+        summary["seed_correct"].mean(), sd_text(summary["seed_correct"], 1)))
+    log.info("  Mean league seed-style position error: {:.2f} spots (sd {})".format(
+        summary["seed_mae"].mean(), sd_text(summary["seed_mae"])))
+    log.info("  Mean league seed-style spearman: {:.3f} (sd {})".format(
+        summary["league_seed_spearman"].mean(), sd_text(summary["league_seed_spearman"], 3)))
     log.info("  Mean points MAE: {:.2f} (sd {}); RMSE {:.2f} (sd {})".format(
         summary["points_mae"].mean(), sd_text(summary["points_mae"]),
         summary["points_rmse"].mean(), sd_text(summary["points_rmse"])))
@@ -75,7 +89,13 @@ def log_summary(log, header: str, results: list) -> None:
         "div_ok": summary["div_correct"].astype(int),
         "winners": summary["div_winners_correct"].astype(int),
         "div_mae": summary["div_mean_pos_error"].round(2),
-        "spearman": summary["spearman"].round(3),
+        "div_spearman": summary["div_spearman"].round(3),
+        "lg_ok": summary["league_correct"].astype(int),
+        "lg_mae": summary["league_mae"].round(2),
+        "seed_ok": summary["seed_correct"].astype(int),
+        "seed_mae": summary["seed_mae"].round(2),
+        "pts_spearman": summary["league_pts_spearman"].round(3),
+        "seed_spearman": summary["league_seed_spearman"].round(3),
         "pts_mae": summary["points_mae"].round(2),
     }).sort_values("year")
     log.info("\n  Per year:")

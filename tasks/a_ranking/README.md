@@ -1,6 +1,7 @@
 # The final regular season ranking of teams
 
-- **Target:** `Teams.rank`: the team's final position **inside its division** (1–5). 
+- **Target:** `Teams.rank`: the team's final position **inside its division** (1–5). Divisional ranking is the headline target.
+- **Secondary check:** league-wide position and ranking metrics, reported by points order and by a reconstructed seed-style order.
 - **Running from repository root:** `.venv/bin/python tasks/a_ranking/main.py`
 - **Dependencies:** `pandas`, `numpy`, `scipy`, `scikit-learn`, `matplotlib`,`seaborn`. 
 - **SQL Database:** built from `data/raw/*.csv` with `src/build_db.py` if it is missing.
@@ -17,15 +18,21 @@ Each run loops over `TEST_YEARS`, re-samples `data/train` and `data/test` throug
 
 ## Metrics
 
-`evaluate.evaluate_ranking()` reports:
+`evaluate.evaluate_ranking()` reports divisional metrics first:
 
 - **divisional positions correct / total**
 - **division winners correct / total**
 - **mean absolute divisional position error**
-- **league-wide Spearman correlation (ranking quality signal)**
-- **points MAE (Mean Absolute Error) and RMSE (Root Mean Squared Error)**
+- **divisional Spearman correlation**
 
-Only divisional/rank-relevant evaluation is in scope.
+League-wide metrics are secondary and come in two views:
+
+- **point order:** all teams ranked by points; reports exact positions, mean absolute position error and Spearman (`league_pts_spearman`).
+- **seed style:** division winners are placed before other teams inside each conference, each group is ordered by points, and the conference lists are interleaved `E1, W1, E2, W2, ...` to make one 1–30 list. This reports exact positions, mean absolute position error and `league_seed_spearman`.
+
+For the test years (2000–2009), the relevant NHL rule was: the three division winners in each conference were conference seeds 1–3 by points, and the next five teams by points were seeds 4–8. The database has no seed column, so the same convention is extended to all 15 teams per conference. Ties use wins, goal differential and goals for for actual standings; predicted points are effectively continuous, so predicted ties fall back to `franchID`.
+
+Points MAE and RMSE are also reported for the underlying regression target.
 
 ## Models
 
@@ -70,4 +77,4 @@ Add new experiments by appending another dict; no other file needs to change unl
 ## Outputs
 
 - `tasks/a_ranking/logs/output.log` – per-year predictions and metrics, plus an aggregate summary for each experiment with sd for every metric and a compact per-year table. Log entries use foldable indentation so each run and model block can be collapsed in an editor.
-- `tasks/a_ranking/plots/` – five curated figures written once by `evaluate.generate_graphs()` at the end of a run: `model_comparison.png` (headline models × key metrics, mean ± sd), `per_year_trends.png`, `error_distributions.png` (league-wide and divisional, `roster_base` vs `roster_all`), `predicted_vs_actual.png` and `estimator_comparison.png` (Ridge vs ElasticNet vs OLS for both feature sets).
+- `tasks/a_ranking/plots/` – six curated figures written once by `evaluate.generate_graphs()` at the end of a run: `model_comparison.png` (headline models × divisional metrics, mean ± sd), `league_comparison.png` (point-order, seed-style and Spearman metrics), `per_year_trends.png`, `error_distributions.png` (league-wide and divisional, `roster_base` vs `roster_all`), `predicted_vs_actual.png` and `estimator_comparison.png` (Ridge vs ElasticNet vs OLS for both feature sets).
