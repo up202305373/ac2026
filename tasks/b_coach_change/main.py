@@ -11,9 +11,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import pandas as pd
-
-from evaluate import evaluate_coach_change, plot_evaluation_graphs
+from evaluate import (
+    evaluate_coach_change,
+    plot_evaluation_graphs,
+    plot_flag_fraction_sweep,
+)
 from models import MODELS
 from src.sampler import sampler
 
@@ -21,6 +23,7 @@ OUTPUT_DIR = ROOT / "tasks" / "b_coach_change" / "logs"
 PLOTS_DIR = OUTPUT_DIR / "plots"
 LOG_FILE = OUTPUT_DIR / "output.log"
 RESULTS_CSV = OUTPUT_DIR / "results.csv"
+SWEEP_CSV = OUTPUT_DIR / "flag_fraction_sweep.csv"
 # TEST_YEARS = list(range(1980, 2009, 5))
 TEST_YEARS = list(range(1981, 2009, 2))
 # TEST_YEARS = [2000, 2001, 2002, 2003, 2005, 2006, 2007, 2008, 2009]
@@ -92,6 +95,7 @@ def load_csv_safe(path: Path) -> pd.DataFrame:
 def main() -> None:
     log = setup_logging()
     results: list[dict] = []
+    actual_by_year: dict[int, pd.DataFrame] = {}
 
     try:
         for test_year in TEST_YEARS:
@@ -128,7 +132,7 @@ def main() -> None:
                 test_splits = pd.read_csv(ROOT / "data" / "test" / "TeamSplits.csv")
                 test_awards = pd.read_csv(ROOT / "data" / "test" / "AwardsCoaches.csv")
 
-                # Load New Contextual Data for Roster & Expectations
+                # Load Contextual Data for Roster & Expectations
                 train_scoring = load_csv_safe(ROOT / "data" / "train" / "Scoring.csv")
                 test_scoring = load_csv_safe(ROOT / "data" / "test" / "Scoring.csv")
 
@@ -149,6 +153,8 @@ def main() -> None:
                 test_teams_half = load_csv_safe(ROOT / "data" / "test" / "TeamsHalf.csv")
 
                 actual_test = load_actual_coach_changes(test_year)
+                if diff == 2:
+                    actual_by_year[test_year] = actual_test
 
                 for name, train_and_predict in MODELS.items():
                     log.info(
@@ -198,6 +204,17 @@ def main() -> None:
             results_df = pd.DataFrame(results)
             results_df.to_csv(RESULTS_CSV, index=False)
             plot_paths = plot_evaluation_graphs(results_df, PLOTS_DIR)
+
+            # used to determine the best BASE_FLAG_FRACTION for model_14 (requires model_14_2)
+            # sweep_df, sweep_plot = plot_flag_fraction_sweep(
+            #     actual_by_year=actual_by_year,
+            #     output_dir=PLOTS_DIR,
+            #     values=list(range(0, 101, 2)),
+            # )
+            # if not sweep_df.empty:
+            #     sweep_df.to_csv(SWEEP_CSV, index=False)
+            # if sweep_plot is not None:
+            #     plot_paths.append(sweep_plot)
 
             print(f"\nLog written to {LOG_FILE}")
             print(f"Results saved to {RESULTS_CSV}")

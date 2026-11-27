@@ -7,12 +7,16 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")  # Non-interactive backend for saving plots in scripts
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
     classification_report,
     confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
     roc_auc_score,
 )
 
@@ -301,3 +305,124 @@ def plot_evaluation_graphs(results_df: pd.DataFrame, output_dir: Path) -> list[P
         log.info(f"Saved plot: {path}")
 
     return saved_paths
+
+
+def plot_flag_fraction_sweep(
+    actual_by_year: dict[int, pd.DataFrame],
+    output_dir: Path,
+    values: list[int] | None = None,
+) -> tuple[pd.DataFrame, Path | None]:
+    """Evaluate and plot model_14 sensitivity across candidate BASE_FLAG_FRACTION values."""
+    from models import model_14_2
+
+    if values is None:
+        values = list(range(0, 101, 5))
+
+    shared_years = sorted(set(model_14_2._SWEEP_CACHE).intersection(actual_by_year))
+    if not shared_years:
+        log.warning("No cached model_14 splits available for BASE_FLAG_FRACTION sweep.")
+        return pd.DataFrame(), None
+
+    rows = []
+    for pct in values:
+        base_frac = pct / 100.0
+        accs, macro_f1s, c1_f1s, c1_precs, c1_recs, flagged_rates = [], [], [], [], [], []
+
+        for year in shared_years:
+            actual_df = actual_by_year[year]
+            if actual_df.empty:
+                continue
+
+            preds = model_14_2.predict_for_base_fraction(year, base_frac)
+            actual = actual_by_year[year][["year", "tmID", "Coach_Changed"]].copy()
+            actual["Coach_Changed"] = actual["Coach_Changed"].astype(int)
+
+            comp = preds.merge(actual, on=["year", "tmID"], how="inner", validate="one_to_one")
+            y_true = comp["Coach_Changed"].to_numpy(dtype=int)
+            y_pred = comp["predicted_change"].to_numpy(dtype=int)
+
+            accs.append(accuracy_score(y_true, y_pred))
+            macro_f1s.append(f1_score(y_true, y_pred, average="macro", zero_division=0))
+            c1_f1s.append(f1_score(y_true, y_pred, pos_label=1, zero_division=0))
+            c1_precs.append(precision_score(y_true, y_pred, pos_label=1, zero_division=0))
+            c1_recs.append(recall_score(y_true, y_pred, pos_label=1, zero_division=0))
+            flagged_rates.append(float(y_pred.mean()))
+
+        rows.append(
+            {
+                "base_pct": pct,
+                "base_flag_fraction": base_frac,
+                "actual_flagged_rate": float(np.mean(flagged_rates)),
+                "accuracy": float(np.mean(accs)),
+                "macro_f1": float(np.mean(macro_f1s)),
+                "class1_f1": float(np.mean(c1_f1s)),
+                "class1_precision": float(np.mean(c1_precs)),
+                "class1_recall": float(np.mean(c1_recs)),
+            }
+        )
+
+    sweep_df = pd.DataFrame(rows)
+    log.info("\n=== BASE_FLAG_FRACTION Sweep (Mean Across Test Years) ===")
+    log.info(sweep_df.to_string(index=False, float_format=lambda x: f"{x:.3f}"))
+
+    best_macro = sweep_df.loc[sweep_df["macro_f1"].idxmax()]
+    best_c1 = sweep_df.loc[sweep_df["class1_f1"].idxmax()]
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "flag_fraction_sweep.png"
+
+    fig, ax = plt.subplots(figsize=(10.5, 5.5))
+    ax.plot(sweep_df["base_pct"], sweep_df["accuracy"], marker="o", linewidth=2, label="Mean Accuracy")
+    ax.plot(sweep_df["base_pct"], sweep_df["macro_f1"], marker="s", linewidth=2, label="Mean Macro F1")
+    ax.plot(
+        sweep_df["base_pct"],
+        sweep_df["class1_f1"],
+        marker="^",
+        linewidth=2.2,
+        label="Mean Class 1 F1 (Coach Change)",
+    )
+    ax.plot(
+        sweep_df["base_pct"],
+        sweep_df["class1_precision"],
+        linestyle="--",
+        alpha=0.75,
+        label="Class 1 Precision",
+    )
+    ax.plot(
+        sweep_df["base_pct"],
+        sweep_df["class1_recall"],
+        linestyle=":",
+        alpha=0.75,
+        label="Class 1 Recall",
+    )
+
+    ax.axvline(best_macro["base_pct"], color="tab:orange", linestyle="--", alpha=0.6)
+    ax.annotate(
+        f"Best Macro F1: {best_macro['macro_f1']:.3f} (@ {int(best_macro['base_pct'])}%)",
+        xy=(best_macro["base_pct"], best_macro["macro_f1"]),
+        xytext=(6, 8),
+        textcoords="offset points",
+        fontsize=9,
+    )
+
+    ax.axvline(best_c1["base_pct"], color="tab:green", linestyle="--", alpha=0.6)
+    ax.annotate(
+        f"Best Class 1 F1: {best_c1['class1_f1']:.3f} (@ {int(best_c1['base_pct'])}%)",
+        xy=(best_c1["base_pct"], best_c1["class1_f1"]),
+        xytext=(6, -14),
+        textcoords="offset points",
+        fontsize=9,
+    )
+
+    ax.set_title("Model 14 Sensitivity to BASE_FLAG_FRACTION (Mean Across Test Years)")
+    ax.set_xlabel("BASE_FLAG_FRACTION (%)")
+    ax.set_ylabel("Mean Score")
+    ax.set_xticks(values)
+    ax.grid(True, linestyle="--", alpha=0.35)
+    ax.legend(loc="best")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    log.info(f"Saved plot: {output_path}")
+    return sweep_df, output_path
