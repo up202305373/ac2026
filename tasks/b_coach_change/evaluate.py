@@ -8,15 +8,23 @@ import matplotlib
 matplotlib.use("Agg")  # Non-interactive backend for saving plots in scripts
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    classification_report,
+    confusion_matrix,
+    roc_auc_score,
+)
 
 log = logging.getLogger("b_coach_change")
 
 METRICS = [
     ("accuracy", "Accuracy"),
-    ("precision", "Precision (Changed)"),
-    ("recall", "Recall (Changed)"),
-    ("f1_score", "F1 Score (Changed)"),
+    ("precision", "Precision"),
+    ("recall", "Recall"),
+    ("f1_score", "F1 Score"),
+    ("roc_auc", "ROC-AUC"),
+    ("pr_auc", "PR-AUC"),
 ]
 
 
@@ -37,7 +45,12 @@ def evaluate_coach_change(predictions: pd.DataFrame, actual: pd.DataFrame) -> di
     actual = actual[["year", "tmID", "Coach_Changed"]].copy()
     actual["Coach_Changed"] = actual["Coach_Changed"].astype(int)
 
-    comparison = predictions[["year", "tmID", "predicted_change"]].merge(
+    has_prob = "change_probability" in predictions.columns
+    pred_cols = ["year", "tmID", "predicted_change"] + (
+        ["change_probability"] if has_prob else []
+    )
+
+    comparison = predictions[pred_cols].merge(
         actual,
         on=["year", "tmID"],
         how="inner",
@@ -50,10 +63,27 @@ def evaluate_coach_change(predictions: pd.DataFrame, actual: pd.DataFrame) -> di
 
     y_true = comparison["Coach_Changed"]
     y_pred = comparison["predicted_change"]
+    y_score = (
+        comparison["change_probability"].astype(float).fillna(y_pred.astype(float))
+        if has_prob
+        else y_pred.astype(float)
+    )
 
     accuracy = accuracy_score(y_true, y_pred)
+    if y_true.nunique() >= 2:
+        roc_auc = float(roc_auc_score(y_true, y_score))
+        pr_auc = float(average_precision_score(y_true, y_score))
+    else:
+        roc_auc = float("nan")
+        pr_auc = float("nan")
+
     log.info("=== Coach Change Prediction ===")
     log.info(f"Accuracy: {accuracy:.2f}")
+    log.info(
+        f"ROC-AUC: {roc_auc:.2f} | PR-AUC: {pr_auc:.2f}"
+        if y_true.nunique() >= 2
+        else "ROC-AUC: N/A | PR-AUC: N/A (single class in split)"
+    )
 
     # Force a 2x2 matrix even if only one class is present in the split
     cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
@@ -86,6 +116,8 @@ def evaluate_coach_change(predictions: pd.DataFrame, actual: pd.DataFrame) -> di
         "precision": float(changed_stats["precision"]),
         "recall": float(changed_stats["recall"]),
         "f1_score": float(changed_stats["f1-score"]),
+        "roc_auc": roc_auc,
+        "pr_auc": pr_auc,
         "total_evaluated": len(comparison),
     }
 
@@ -99,7 +131,8 @@ def _plot_metrics_vs_variable(
     output_path: Path,
     use_markers: bool = False,
 ) -> Path:
-    fig, axes = plt.subplots(2, 2, figsize=(14, 9), sharex=True)
+    nrows = math.ceil(len(METRICS) / 2)
+    fig, axes = plt.subplots(nrows, 2, figsize=(14, 4.2 * nrows), sharex=True, squeeze=False)
     axes_flat = axes.ravel()
     models = list(model_colors.keys())
     x_ticks = sorted(results_df[x_col].unique())
@@ -139,7 +172,7 @@ def _plot_metrics_vs_variable(
         if use_markers:
             ax.set_xticks(x_ticks)
 
-    for ax in axes[1]:
+    for ax in axes[-1]:
         ax.set_xlabel(x_label)
 
     handles, labels = axes_flat[0].get_legend_handles_labels()

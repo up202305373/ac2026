@@ -4,6 +4,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -19,7 +22,8 @@ PLOTS_DIR = OUTPUT_DIR / "plots"
 LOG_FILE = OUTPUT_DIR / "output.log"
 RESULTS_CSV = OUTPUT_DIR / "results.csv"
 # TEST_YEARS = list(range(1980, 2009, 5))
-TEST_YEARS = [2000, 2001, 2002, 2003, 2005, 2006, 2007, 2008, 2009]
+TEST_YEARS = list(range(1981, 2009, 2))
+# TEST_YEARS = [2000, 2001, 2002, 2003, 2005, 2006, 2007, 2008, 2009]
 # TEST_YEARS = [2000, 2003, 2007, 2009]
 
 
@@ -39,23 +43,43 @@ def setup_logging() -> logging.Logger:
 
 def load_actual_coach_changes(year: int) -> pd.DataFrame:
     with sqlite3.connect(ROOT / "database" / "hockey.db") as connection:
-        query = """
-        SELECT year, tmID, coachID, stint 
-        FROM Coaches 
-        WHERE year IN (?, ?)
-        """
-        df = pd.read_sql_query(query, connection, params=(year, year + 1))
+        df = pd.read_sql_query(
+            "SELECT year, tmID, coachID, stint FROM Coaches WHERE lgID = 'NHL'",
+            connection,
+        )
 
-        df = df.sort_values(by=["tmID", "year", "stint"])
-        last_coach = df.drop_duplicates(subset=["tmID", "year"], keep="last").copy()
+    # Contiguous NHL season index so 2003 pairs with 2005 across the 2004-05 lockout
+    nhl_years = sorted(df["year"].dropna().astype(int).unique())
+    year_to_idx = {y: i for i, y in enumerate(nhl_years)}
+    df["season_idx"] = df["year"].map(year_to_idx)
+    df = df.sort_values(["tmID", "season_idx", "stint"])
 
-        last_coach["Next_Year_Coach"] = last_coach.groupby("tmID")["coachID"].shift(-1)
-        last_coach["Coach_Changed"] = (
-            last_coach["coachID"] != last_coach["Next_Year_Coach"]
-        ).astype(int)
+    summary = (
+        df.groupby(["tmID", "year", "season_idx"], as_index=False)
+        .agg(
+            first_coach=("coachID", "first"),
+            last_coach=("coachID", "last"),
+            n_stints=("coachID", "count"),
+        )
+        .sort_values(["tmID", "season_idx"])
+    )
 
-        return last_coach[last_coach["year"] == year].copy()
+    next_season = summary[["tmID", "season_idx", "last_coach", "n_stints"]].copy()
+    next_season["season_idx"] = next_season["season_idx"] - 1
+    next_season = next_season.rename(
+        columns={"last_coach": "Next_Year_Coach", "n_stints": "Next_Year_Stints"}
+    )
 
+    merged = summary.merge(next_season, on=["tmID", "season_idx"], how="left")
+    target = merged[merged["year"] == year].copy()
+
+    changed = (target["last_coach"] != target["Next_Year_Coach"]) | (
+        target["Next_Year_Stints"].fillna(1) > 1
+    )
+    target["Coach_Changed"] = np.where(
+        target["Next_Year_Coach"].isna(), np.nan, changed.astype(float)
+    )
+    return target.dropna(subset=["Coach_Changed"])
 
 def load_csv_safe(path: Path) -> pd.DataFrame:
     """Helper to bypass missing files gracefully if sampler exclusions happen."""
@@ -73,8 +97,8 @@ def main() -> None:
         for test_year in TEST_YEARS:
             # for diff in [2,3,4,5,7,8,10,12,14,16,18,20,25,30,35,40,45,50]:
             # for diff in [2,3,4,5,7,9,11,13,16,20,30]:
-            for diff in [2,3,5]:
-            # diff = 8
+            # for diff in [2,3,5]:
+            for diff in [2]:
                 sampler(
                     train_from=test_year - diff,
                     train_until=test_year - 1,
