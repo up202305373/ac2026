@@ -3,17 +3,20 @@ from __future__ import annotations
 import pandas as pd
 
 
-def train_and_predict(train_data: pd.DataFrame, test_data: pd.DataFrame) -> pd.DataFrame:
-    """Predict each player's PIM as his PIM from the previous season."""
+def train_and_predict(train_data: pd.DataFrame, test_data: pd.DataFrame, *_, **__) -> pd.DataFrame:
+    """Predict each player's PIM as his total PIM from the previous season."""
     required_columns = {"year", "playerID", "PIM"}
     for name, data in (("train_data", train_data), ("test_data", test_data)):
         missing = required_columns - set(data.columns)
         if missing:
             raise ValueError(f"{name} is missing columns: {sorted(missing)}")
 
-    previous = train_data[train_data["stint"] == 1]
+    # Last season's stints are observed, so use the player's full-season total.
+    previous = train_data[["year", "playerID", "PIM"]].copy()
+    previous["PIM"] = pd.to_numeric(previous["PIM"], errors="coerce")
     previous_pim = (
-        previous[["year", "playerID", "PIM"]]
+        previous.groupby(["year", "playerID"], as_index=False)["PIM"]
+        .sum()
         .rename(columns={"year": "previous_year", "PIM": "predicted_pim"})
     )
 
@@ -28,4 +31,7 @@ def train_and_predict(train_data: pd.DataFrame, test_data: pd.DataFrame) -> pd.D
         validate="many_to_one",
     )
 
+    # A player with no prior-season row is treated as having zero prior PIM.
+    predictions["predicted_pim"] = pd.to_numeric(
+        predictions["predicted_pim"], errors="coerce").fillna(0.0)
     return predictions[["year", "playerID", "predicted_pim"]]

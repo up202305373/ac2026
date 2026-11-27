@@ -72,8 +72,12 @@ def main() -> None:
         for exp in config.EXPERIMENTS:
             name = exp["name"]
             predict = MODELS[exp["model"]]
+            extra = {k: v for k, v in exp.items() if k not in ("name", "model")}
             log.info(f"\n  ===== Model: {name} =====")
-            predictions = predict(train_data, test_data)
+            predictions = predict(train_data, test_data, **extra)
+            if "selected_alpha" in predictions.attrs:
+                log.info("   Selected alpha (validation): {}".format(
+                    predictions.attrs["selected_alpha"]))
             log.info("   Predictions:")
             log.info(indent(predictions.to_string(index=False), 4))
             log.info("\n   Test metrics:")

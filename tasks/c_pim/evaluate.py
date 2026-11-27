@@ -33,7 +33,9 @@ def evaluate_pim(predictions: pd.DataFrame, actual: pd.DataFrame, name: str, yea
         how="inner",
         validate="one_to_one",
     )
-    comparison = comparison.dropna(subset=["predicted_pim", "PIM"])
+    comparison["predicted_pim"] = pd.to_numeric(
+        comparison["predicted_pim"], errors="coerce").fillna(0.0)
+    comparison = comparison.dropna(subset=["PIM"])
 
     if comparison.empty:
         raise ValueError("No players with both predicted and actual PIM")

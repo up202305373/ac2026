@@ -7,8 +7,12 @@ TRAIN_FROM = 1995
 LOG_DIR = ROOT / "tasks" / "c_pim" / "logs"
 PLOTS_DIR = ROOT / "tasks" / "c_pim" / "plots"
 
-TEST_YEARS = [2000, 2001, 2002, 2003, 2005, 2006, 2007, 2008, 2009]
+TEST_YEARS = [2000, 2001, 2002, 2003, 2006, 2007, 2008, 2009]
+
+ALPHAS = [0.1, 0.3, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0]
 
 EXPERIMENTS = [
     {"name": "baseline", "model": "baseline"},
+    {"name": "player_base", "model": "player_base", "alphas": ALPHAS},
+    {"name": "player_base_pos", "model": "player_base_pos", "alphas": ALPHAS},
 ]
