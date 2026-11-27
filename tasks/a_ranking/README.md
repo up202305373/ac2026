@@ -30,7 +30,13 @@ League-wide metrics are secondary and come in two views:
 - **point order:** all teams ranked by points; reports exact positions, mean absolute position error and Spearman (`league_pts_spearman`).
 - **seed style:** division winners are placed before other teams inside each conference, each group is ordered by points, and the conference lists are interleaved `E1, W1, E2, W2, ...` to make one 1–30 list. This reports exact positions, mean absolute position error and `league_seed_spearman`.
 
-For the test years (2000–2009), the relevant NHL rule was: the three division winners in each conference were conference seeds 1–3 by points, and the next five teams by points were seeds 4–8. The database has no seed column, so the same convention is extended to all 15 teams per conference. Ties use wins, goal differential and goals for for actual standings; predicted points are effectively continuous, so predicted ties fall back to `franchID`.
+The seed rule is year-dependent (`_seed_rule` in `evaluate.py`):
+
+- **1993–1997:** two division winners per conference seeded 1–2 by points, then the next six teams by points.
+- **1998–2012:** three division winners seeded 1–3 by points, then the next five teams by points. This is the rule for every current test year.
+- **2013 onward:** two division winners seeded 1–2, the next four teams seeded 3–6, and two wild cards seeded 7–8.
+
+The helper checks that the number of divisions in the data matches the branch. The database has no seed column, so each rule is extended to all teams in a conference rather than only playoff qualifiers. In all branches, ordering the winner block first and then all remaining teams by points reproduces the relevant seeds; for 2013+ the wild cards naturally land at 7–8. The 2020 and 2021 pandemic formats are not modelled. Ties use wins, goal differential and goals for for actual standings; predicted points are effectively continuous, so predicted ties fall back to `franchID`.
 
 Points MAE and RMSE are also reported for the underlying regression target.
 

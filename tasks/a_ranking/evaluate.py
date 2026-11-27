@@ -43,6 +43,52 @@ def _seed_positions(df: pd.DataFrame, score_col: str, winner_col: str,
     return pd.Series(range(1, len(out) + 1), index=out["franchID"].values)
 
 
+def _seed_rule(year: int) -> tuple[int, str]:
+    """NHL conference seeding rule for a season identified by its start year.
+
+    Returns the number of division winners per conference and a short label.
+    The league used two divisions per conference until realignment in 1998,
+    three from 1998-99 through 2012-13, and four (with wild cards) from
+    2013-14 onward.
+    """
+    year = int(year)
+    if 1993 <= year <= 1997:
+        return 2, "two division winners seeded 1-2, next six by points"
+    if 1998 <= year <= 2012:
+        return 3, "three division winners seeded 1-3, next five by points"
+    if year >= 2013:
+        return 2, ("two division winners seeded 1-2, next four by points, "
+                   "two wild cards seeded 7-8")
+    raise ValueError(f"No NHL seed rule configured for season starting in {year}")
+
+
+def _seed_positions_for_year(div: pd.DataFrame, year: int) -> tuple[pd.Series, pd.Series]:
+    """Predicted and actual seed-style positions under the rule for ``year``."""
+    if int(year) in (2020, 2021):
+        raise ValueError("Pandemic-era NHL formats (2020/2021) are not modelled")
+
+    division_winners, rule = _seed_rule(year)
+    frame = div.copy()
+    frame["_conf"] = frame["confID"].fillna("__NA__").astype(str)
+    divisions = frame.groupby("_conf")["divID"].nunique()
+    if not divisions.empty and (divisions != division_winners).any():
+        raise ValueError(
+            f"{year}: expected {division_winners} divisions per conference for "
+            f"'{rule}', got {divisions.to_dict()}")
+
+    frame["_gd"] = frame["GF"] - frame["GA"]
+    frame["pred_div_winner"] = frame["predicted_div_pos"].eq(1).astype(int)
+    frame["actual_div_winner"] = frame["rank"].eq(1).astype(int)
+
+    # In every branch the winner block is ordered first, then the remaining
+    # teams by points. For 2013+ that puts the wild cards at positions 7-8.
+    pred_seed = _seed_positions(
+        frame, "predicted_pts", "pred_div_winner", ("franchID",))
+    actual_seed = _seed_positions(
+        frame, "Pts", "actual_div_winner", ("W", "_gd", "GF", "franchID"))
+    return pred_seed, actual_seed
+
+
 def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str, year: int, indent: str = "") -> dict:
     prediction_columns = {"year", "franchID", "predicted_pts"}
     actual_columns = {"year", "franchID", "Pts", "divID", "rank",
@@ -109,14 +155,9 @@ def evaluate_ranking(predictions: pd.DataFrame, actual: pd.DataFrame, name: str,
     winners = div[div["rank"] == 1]
     div_winners_correct = int((winners["predicted_div_pos"] == 1).sum())
 
-    # Seed-style league order: division winners first inside each conference,
-    # then points. This is reconstructed because the DB has no seed column.
-    div["_gd"] = div["GF"] - div["GA"]
-    div["pred_div_winner"] = div["predicted_div_pos"].eq(1).astype(int)
-    div["actual_div_winner"] = div["rank"].eq(1).astype(int)
-    pred_seed = _seed_positions(div, "predicted_pts", "pred_div_winner", ("franchID",))
-    actual_seed = _seed_positions(
-        div, "Pts", "actual_div_winner", ("W", "_gd", "GF", "franchID"))
+    # Seed-style league order is reconstructed because the DB has no seed
+    # column. The NHL rule changed over time, so it is selected by year.
+    pred_seed, actual_seed = _seed_positions_for_year(div, year)
 
     seed = div[["year", "franchID"]].copy()
     seed["predicted_seed_pos"] = seed["franchID"].map(pred_seed).astype(float)
