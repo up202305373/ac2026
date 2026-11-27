@@ -22,9 +22,9 @@ Each run loops over `TEST_YEARS`, re-samples `data/train` and `data/test` throug
 - **MAE** — mean absolute PIM error.
 - **RMSE** — root mean squared PIM error.
 - **Spearman correlation** — rank correlation between predicted and actual PIM.
-- **players evaluated / total** — players with a recorded target-season PIM.
+- **players evaluated / total** — all `stint = 1` player-seasons in the target season.
 
-Missing predictions are scored as `0`, so no player is dropped for lacking a prediction. The baseline also treats a missing prior-season PIM as `0`. Only players with no recorded target-season PIM are excluded.
+Missing predictions are scored as `0`. Target-season rows with no recorded PIM (no GP) are also treated as `0`, so every `stint = 1` player-season is evaluated. The baseline additionally treats a missing prior-season PIM as `0`.
 
 ## Models
 
@@ -51,11 +51,11 @@ Full eight-year run:
 
 | model | MAE | RMSE | Spearman | players scored |
 |---|---:|---:|---:|---:|
-| `baseline` | 18.46 | 29.91 | 0.693 | 7744/7761 |
-| `player_base` | 17.84 | 26.27 | 0.701 | 7744/7761 |
-| `player_base_pos` | **17.63** | **26.19** | **0.707** | 7744/7761 |
+| `baseline` | 18.42 | 29.87 | 0.694 | 7761/7761 |
+| `player_base` | 17.80 | 26.24 | 0.702 | 7761/7761 |
+| `player_base_pos` | **17.59** | **26.16** | **0.709** | 7761/7761 |
 
-`player_base_pos` is best on all three metrics: adding position lowers MAE from `17.84` to `17.63` and raises Spearman from `0.701` to `0.707`. The selected alpha varies by year from `0.1` to `300.0` for both `player_*` models, so the validation choice is somewhat unstable; that is worth checking before adding more variants.
+The 17 no-GP player-seasons are included as zero PIM with zero predictions, so every `stint = 1` row is evaluated. `player_base_pos` is best on all three metrics: adding position lowers MAE from `17.80` to `17.59` and raises Spearman from `0.702` to `0.709`. The selected alpha varies by year from `0.1` to `300.0` for both `player_*` models, so the validation choice is somewhat unstable; that is worth checking before adding more variants.
 
 ## Configuration options
 

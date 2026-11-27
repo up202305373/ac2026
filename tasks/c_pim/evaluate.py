@@ -25,20 +25,21 @@ def evaluate_pim(predictions: pd.DataFrame, actual: pd.DataFrame, name: str, yea
         raise ValueError(f"actual is missing columns: {sorted(missing_actual)}")
 
     actual = actual[["year", "playerID", "PIM"]].copy()
-    actual["PIM"] = pd.to_numeric(actual["PIM"], errors="coerce")
+    # A stint=1 row with no GP/PIM means the player did not play: zero PIM.
+    actual["PIM"] = pd.to_numeric(actual["PIM"], errors="coerce").fillna(0.0)
 
-    comparison = predictions[["year", "playerID", "predicted_pim"]].merge(
-        actual,
+    # Left join so players absent from the sampler's test rows are still scored.
+    comparison = actual.merge(
+        predictions[["year", "playerID", "predicted_pim"]],
         on=["year", "playerID"],
-        how="inner",
+        how="left",
         validate="one_to_one",
     )
     comparison["predicted_pim"] = pd.to_numeric(
         comparison["predicted_pim"], errors="coerce").fillna(0.0)
-    comparison = comparison.dropna(subset=["PIM"])
 
     if comparison.empty:
-        raise ValueError("No players with both predicted and actual PIM")
+        raise ValueError("No players to evaluate")
 
     comparison["error"] = comparison["predicted_pim"] - comparison["PIM"]
     comparison["abs_error"] = comparison["error"].abs()
